@@ -5,15 +5,19 @@ vendor/ODM/kernel interfaces may be used. Do not import Exynos990 partitions.
 
 The build script now has a separate static recovery packaging path. It never
 calls lpmake, update_dynamic_partitions, or formats userdata. It also leaves
-boot/dtbo/recovery, EFS, prism and optics untouched.
+dtbo/recovery, EFS, prism and optics untouched; boot is only overwritten
+when a size-checked, SHA-256-pinned image is supplied.
 
 ## Important outstanding prerequisites
 
 1. Verify real system/vendor/product/odm capacities from each target model's
    PIT or block device. Record capacities as TARGET_*_PARTITION_SIZE in the
    device configuration. Do not guess sizes from another S10 model.
-2. Audit and pin kernel and DTB/DTBO sources. The legacy ExtremeKRNL module is
-   disabled because it builds a moving 'main' branch without verification.
+2. Audit, build and SHA-256 pin the device-compatible boot.img (including
+   kernel and ramdisk). Record TARGET_BOOT_IMAGE_SHA256 and the true
+   TARGET_BOOT_PARTITION_SIZE in the target configuration after validating
+   the PIT. The ZIP generator refuses to emit a package without these values.
+   ExtremeKRNL still must be pinned to a reviewed kernel revision.
 3. Validate the Android 16 donor userspace against the target stock VINTF
    manifest, API 31 vendor interfaces, camera/graphics/radio/audio/NFC HALs,
    kernel modules, init services, and SELinux with real boot logs.

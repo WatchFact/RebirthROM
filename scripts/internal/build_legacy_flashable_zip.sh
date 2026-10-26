@@ -30,6 +30,28 @@ if [[ "${UNICA_S10_PIT_VERIFIED:-0}" != "1" ]] ||
     exit 1
 fi
 
+# The stock Android 12 boot image cannot be assumed to boot Android 16.
+# A device-reviewed boot image and stock PIT boot capacity must be pinned.
+BOOT_IMAGE="$WORK_DIR/kernel/boot.img"
+BOOT_LIMIT="${TARGET_BOOT_PARTITION_SIZE:-none}"
+BOOT_SHA256="${TARGET_BOOT_IMAGE_SHA256:-}"
+if [[ ! -f "$BOOT_IMAGE" ]] ||
+        [[ ! "$BOOT_LIMIT" =~ ^[0-9]+$ ]] || (( BOOT_LIMIT < 1048576 )) ||
+        (( BOOT_LIMIT % 4096 != 0 )) ||
+        [[ ! "$BOOT_SHA256" =~ ^[[:xdigit:]]{64}$ ]]; then
+    LOGE "Missing validated S10 boot.img, boot partition size, or pinned SHA-256."
+    exit 1
+fi
+BOOT_BYTES="$(stat -c %s "$BOOT_IMAGE")"
+if (( BOOT_BYTES == 0 || BOOT_BYTES > BOOT_LIMIT )); then
+    LOGE "boot.img is empty or larger than the physical boot partition"
+    exit 1
+fi
+if ! printf '%s  %s\n' "$BOOT_SHA256" "$BOOT_IMAGE" | sha256sum --check --status; then
+    LOGE "boot.img differs from the reviewed boot image SHA-256"
+    exit 1
+fi
+
 PARTITIONS=(system vendor product odm)
 for part in "${PARTITIONS[@]}"; do
     size_var="TARGET_${part^^}_PARTITION_SIZE"
@@ -114,9 +136,16 @@ for part in "${PARTITIONS[@]}"; do
         "$block" "$part" "$part" "$part" >> "$SCRIPT_FILE"
 done
 printf 'set_progress(1.0);\nui_print("System partitions installed.");\n' >> "$SCRIPT_FILE"
+# Only the exact reviewed image is permitted to replace the boot partition.
+cp -a "$BOOT_IMAGE" "$STAGE/boot.img"
+BOOT_BLOCK="$(GET_DEVICE_FROM_MOUNTPOINT "/boot")"
+printf 'ui_print("Writing verified boot.img...");\n' >> "$SCRIPT_FILE"
+printf 'assert(package_extract_file("boot.img", %s) || abort("Boot image installation failed"));\n' \
+    "$BOOT_BLOCK" >> "$SCRIPT_FILE"
 
-# Boot/dtbo remain deliberately untouched until verified device kernel images
-# and AVB state are provided. A static-partition package is not boot proof.
+
+# DTBO/recovery/AVB remain untouched. The explicitly pinned boot image above
+# still does not establish boot compatibility or verified AVB state.
 printf 'ota-type=BLOCK\npre-device=%s\n' "$TARGET_CODENAME" > "$STAGE/META-INF/com/android/metadata"
 mkdir -p "$OUT_DIR"
 archive="$OUT_DIR/RebirthROM_EXPERIMENTAL_${ROM_VERSION}_${TARGET_CODENAME}.zip"
@@ -124,7 +153,7 @@ unsigned="$STAGE/rom-unsigned.zip"
 (
     cd "$STAGE"
     7z a -tzip -mx=0 -mmt=on "$unsigned" META-INF \
-        *.new.dat.br *.transfer.list *.patch.dat
+        *.new.dat.br *.transfer.list *.patch.dat boot.img
 )
 signapk -w "$SRC_DIR/security/aosp_testkey.x509.pem" \
     "$SRC_DIR/security/aosp_testkey.pk8" "$unsigned" "$archive"

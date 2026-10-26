@@ -93,6 +93,12 @@ cp "${@: -2:1}" "${@: -1}"
 EOF
 chmod +x "$SRC_DIR/scripts/build_fs_image.sh" "$ROOT/bin/"*
 export PATH="$ROOT/bin:$PATH"
+mkdir -p "$WORK_DIR/kernel"
+# Synthetic image for packaging contract testing only, not a bootable kernel.
+printf 'ANDROID!' > "$WORK_DIR/kernel/boot.img"
+truncate -s 4096 "$WORK_DIR/kernel/boot.img"
+export TARGET_BOOT_PARTITION_SIZE=2097152
+export TARGET_BOOT_IMAGE_SHA256="$(sha256sum "$WORK_DIR/kernel/boot.img" | cut -d ' ' -f1)"
 for p in system vendor product odm; do
   mkdir -p "$WORK_DIR/$p"
   printf '%s\n' "$p" > "$WORK_DIR/$p/file.txt"
@@ -105,12 +111,13 @@ bash "$PACKAGER"
 ARCHIVE="$OUT_DIR/RebirthROM_EXPERIMENTAL_smoke_$TARGET.zip"
 test -s "$ARCHIVE"
 unzip -tqq "$ARCHIVE"
+unzip -Z1 "$ARCHIVE" | grep -qx "boot.img"
 SCRIPT="$(unzip -p "$ARCHIVE" META-INF/com/google/android/updater-script)"
 [[ "$SCRIPT" == *'ro.boot.em.model'* ]]
 [[ "$SCRIPT" == *"${MODELS%%:*}"* ]]
 [[ "$SCRIPT" != *"update_dynamic_partitions"* ]]
 [[ "$SCRIPT" != *"map_partition("* ]]
-[[ "$SCRIPT" != *"package_extract_file(\"boot.img\""* ]]
+[[ "$SCRIPT" == *'package_extract_file("boot.img"'* ]]
 for p in system vendor product odm; do
   unzip -Z1 "$ARCHIVE" | grep -qx "$p.transfer.list"
   unzip -Z1 "$ARCHIVE" | grep -qx "$p.new.dat.br"
@@ -126,6 +133,16 @@ if bash "$PACKAGER" > "$ROOT/negative.log" 2>&1; then
 fi
 test ! -f "$ARCHIVE"
 unset S10_MOCK_NO_PATCH
+# Regression: wrong boot hash must never make a signed ROM ZIP.
+rm -f "$ARCHIVE"
+export TARGET_BOOT_IMAGE_SHA256="$(printf 0%.0s {1..64})"
+if bash "$PACKAGER" > "$ROOT/badhash.log" 2>&1; then
+  echo "ERROR: unreviewed boot image was accepted" >&2
+  exit 1
+fi
+test ! -f "$ARCHIVE"
+export TARGET_BOOT_IMAGE_SHA256="$(sha256sum "$WORK_DIR/kernel/boot.img" | cut -d ' ' -f1)"
+
 # Regression: explicit build opt-in is required.
 unset UNICA_S10_PIT_VERIFIED
 if bash "$PACKAGER" > "$ROOT/pit.log" 2>&1; then
