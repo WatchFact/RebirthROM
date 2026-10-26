@@ -13,6 +13,15 @@ jobs:
         target: [beyond0lte, beyond1lte, beyond2lte, beyondx]
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Keep source tests fast and inside hosted runner disk limits.
+          # Full firmware/prebuilt checkout is reserved for actual ROM builds.
+          sparse-checkout: |
+            scripts
+            target
+            platform/exynos9820
+            unica/configs
+            security
       - name: Validate shell scripts
         shell: bash
         run: |
