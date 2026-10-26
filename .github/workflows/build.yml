@@ -5,6 +5,56 @@ on:
   pull_request:
   workflow_dispatch:
 jobs:
+  full-source-syntax:
+    name: Parse all tracked scripts and workflow YAML
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository metadata and core scripts
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            scripts
+            tests
+            target
+            platform/exynos9820
+            unica/configs
+            .github/workflows
+      - name: Parse every tracked shell script, even sparse-excluded modules
+        shell: bash
+        run: |
+          set -euo pipefail
+          total=0
+          failed=0
+          while IFS= read -r -d '' script; do
+            # A tracked symlink points to its real shell script elsewhere in
+            # the repository, rather than containing shell source itself.
+            mode="$(git ls-files -s -- "$script" | awk '{print $1}')"
+            if [[ "$mode" == 120000 ]]; then
+              link="$(git show "HEAD:$script")"
+              resolved="$(realpath -m "$(dirname "$script")/$link")"
+              if [[ "$resolved" == ../* || "$resolved" == /* ]]; then
+                echo "::error file=$script::Symlink escapes repository"
+                failed=$((failed + 1))
+                continue
+              fi
+              script="$resolved"
+            fi
+            total=$((total + 1))
+            if ! git show "HEAD:$script" | bash -n; then
+              echo "::error file=$script::Bash parse failed"
+              failed=$((failed + 1))
+            fi
+          done < <(git ls-files -z -- '*.sh' '*.bash')
+          echo "Parsed $total tracked shell files; syntax failures: $failed"
+          (( total >= 100 )) || { echo "::error::Unexpectedly few scripts scanned"; exit 1; }
+          (( failed == 0 ))
+      - name: Parse workflow YAML syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruby -r yaml -e 'ARGV.each { |path| YAML.load_file(path); puts "YAML syntax OK: #{path}" }' .github/workflows/*.yml
+
   validate:
     runs-on: ubuntu-24.04
     strategy:
