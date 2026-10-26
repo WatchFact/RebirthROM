@@ -31,9 +31,28 @@ SET_METADATA "product" "priv-app/HotwordEnrollmentXGoogleExCORTEXM4" 0 0 755 "u:
 SET_METADATA "product" "priv-app/HotwordEnrollmentXGoogleExCORTEXM4/HotwordEnrollmentXGoogleExCORTEXM4.apk" 0 0 644 "u:object_r:system_file:s0"
 LOG_STEP_OUT
 
-LOG_STEP_IN "- Adding 32-Bit S21 (p3sxxx) WFD blobs"
-ADD_TO_WORK_DIR "r9sxxx" "system" "system/bin/remotedisplay" 0 2000 755 "u:object_r:remotedisplay_exec:s0"
-ADD_TO_WORK_DIR "r9sxxx" "system" "system/lib" 0 0 644 "u:object_r:system_lib_file:s0"
+# Never replace the entire 32-bit system/lib directory with S21 FE files.
+# Doing so would also overwrite Android core graphics, Keymaster, UI and
+# biometrics libraries from an unrelated SoC, risking a bootloop.
+LOG_STEP_IN "- Adding selective 32-bit Wi-Fi Display compatibility blobs"
+ADD_TO_WORK_DIR "r9sxxx" "system" "system/bin/remotedisplay" 0 2000 755 "u:object_r:remotedisplay_exec:s0" || return 1
+S10_WFD_LIBS="
+libhdcp2.so
+libhdcp_client_aidl.so
+libremotedisplay.so
+libremotedisplay_wfd.so
+libremotedisplayservice.so
+librepeater.so
+libsecuibc.so
+libstagefright_hdcp.so
+libtsmux.so
+vendor.samsung.hardware.security.hdcp.wifidisplay-V2-ndk.so
+wfd_log.so
+"
+for S10_WFD_LIB in $S10_WFD_LIBS; do
+    ADD_TO_WORK_DIR "r9sxxx" "system" "system/lib/$S10_WFD_LIB" 0 0 644 "u:object_r:system_lib_file:s0" || return 1
+done
+unset S10_WFD_LIB S10_WFD_LIBS
 LOG_STEP_OUT
 
 LOG_STEP_IN "- Adding stock NFC Case features"
