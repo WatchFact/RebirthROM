@@ -33,7 +33,7 @@ GET_IMAGE_SIZE() { stat -c %s "$1"; }
 EOF
 cat > "$SRC_DIR/scripts/utils/install_utils.sh" <<'EOF'
 GET_DEVICE_FROM_MOUNTPOINT() {
-  case "$1" in /system|/vendor|/product|/odm)
+  case "$1" in /system|/vendor|/product|/odm|/boot)
     printf '"/dev/block/by-name/%s"' "${1#/}";;
   *) return 1 ;;
   esac
@@ -107,7 +107,7 @@ for p in system vendor product odm; do
 done
 
 PACKAGER="$REPO/scripts/internal/build_legacy_flashable_zip.sh"
-bash -x "$PACKAGER"
+bash "$PACKAGER"
 ARCHIVE="$OUT_DIR/RebirthROM_EXPERIMENTAL_smoke_$TARGET.zip"
 test -s "$ARCHIVE"
 unzip -tqq "$ARCHIVE"
