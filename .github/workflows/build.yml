@@ -23,6 +23,25 @@ jobs:
           bash -n platform/exynos9820/config.sh
           bash -n "target/${{ matrix.target }}/config.sh"
           find platform/exynos9820/patches -name '*.sh' -print0 | xargs -0 -r -n1 bash -n
+      - name: Generate real S10 build configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          temp_dir="$(mktemp -d)"
+          trap 'rm -rf "$temp_dir"' EXIT
+          export SRC_DIR="$GITHUB_WORKSPACE" OUT_DIR="$temp_dir"
+          bash scripts/internal/gen_config_file.sh "${{ matrix.target }}"
+          test -s "$temp_dir/config.sh"
+          # shellcheck disable=SC1091
+          source "$temp_dir/config.sh"
+          [[ "$TARGET_CODENAME" == "${{ matrix.target }}" ]]
+          [[ "$TARGET_PLATFORM_SDK_VERSION" == 31 ]]
+          [[ "$TARGET_USE_DYNAMIC_PARTITIONS" == false ]]
+          [[ "$TARGET_OS_FILE_SYSTEM_TYPE" == ext4 ]]
+          [[ "$TARGET_OS_BUILD_SYSTEM_EXT_PARTITION" == false ]]
+          [[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == essi ]]
+          [[ "$TARGET_BOARD_API_LEVEL" == 31 ]]
+          echo "Generated modern target configuration for $TARGET_CODENAME"
       - name: Verify S10 target configurations and physical partition layout
         shell: bash
         run: |
