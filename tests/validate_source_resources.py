@@ -4,6 +4,7 @@
 This only validates syntax, not Android resource semantics or API compatibility.
 """
 import json
+import re
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -18,6 +19,28 @@ def tracked_paths() -> list[str]:
     return [p.decode("utf-8") for p in result.stdout.split(b"\0") if p]
 
 
+def parse_xml_blob(blob: bytes, path: str) -> None:
+    """Validate regular XML plus known sed insertion/append XML fragments.
+
+    Some Android patch assets are sed /matching-anchor/i or /.../a snippets,
+    not standalone XML documents. Validate the address and inserted XML.
+    """
+    value = blob.decode("utf-8-sig")
+    first, sep, remainder = value.partition("\n")
+    if first.startswith("/") and sep:
+        if not re.fullmatch(r"/[^/\r\n]+/[ia]", first):
+            raise ValueError(f"Invalid sed XML insert directive: {first!r}")
+        if not remainder.strip():
+            raise ValueError("Empty XML patch fragment")
+        value = (
+            '<fragment xmlns:android="http://schemas.android.com/apk/res/android" '
+            'xmlns:settings="http://schemas.android.com/apk/res-auto" '
+            'xmlns:tools="http://schemas.android.com/tools">'
+            + remainder + "</fragment>"
+        )
+    ET.fromstring(value)
+
+
 def main() -> int:
     checked = {"json": 0, "xml": 0, "py": 0}
     errors = []
@@ -30,7 +53,7 @@ def main() -> int:
             if ext == "json":
                 json.loads(blob.decode("utf-8-sig"))
             elif ext == "xml":
-                ET.fromstring(blob)
+                parse_xml_blob(blob, path)
             elif ext == "py":
                 compile(blob, path, "exec", dont_inherit=True)
             else:
