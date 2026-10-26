@@ -71,7 +71,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bash tests/s10_zip_smoke.sh "${{ matrix.target }}"
+          bash -x tests/s10_zip_smoke.sh "${{ matrix.target }}"
       - name: Verify S10 target configurations and physical partition layout
         shell: bash
         run: |
