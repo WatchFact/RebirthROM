@@ -32,7 +32,7 @@ jobs:
             mode="$(git ls-files -s -- "$script" | awk '{print $1}')"
             if [[ "$mode" == 120000 ]]; then
               link="$(git show "HEAD:$script")"
-              resolved="$(realpath -m "$(dirname "$script")/$link")"
+              resolved="$(realpath -m --relative-to="$PWD" "$(dirname "$script")/$link")"
               if [[ "$resolved" == ../* || "$resolved" == /* ]]; then
                 echo "::error file=$script::Symlink escapes repository"
                 failed=$((failed + 1))
