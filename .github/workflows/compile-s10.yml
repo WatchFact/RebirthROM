@@ -79,7 +79,8 @@ jobs:
       - name: Download and extract Android 16 source firmware
         shell: bash
         run: |
-          set -euo pipefail
+          # The upstream buildenv uses optional unset variables; do not use nounset.
+          set -eo pipefail
           source ./buildenv.sh beyond2lte
           ./scripts/download_fw.sh --force --ignore-target
           ./scripts/extract_fw.sh --force --ignore-target
@@ -92,7 +93,8 @@ jobs:
       - name: Download and extract Galaxy S10+ target firmware
         shell: bash
         run: |
-          set -euo pipefail
+          # The upstream buildenv uses optional unset variables; do not use nounset.
+          set -eo pipefail
           source ./buildenv.sh beyond2lte
           ./scripts/download_fw.sh --force --ignore-source
           ./scripts/extract_fw.sh --force --ignore-source
@@ -105,7 +107,8 @@ jobs:
       - name: Compile the S10+ ROM work directory
         shell: bash
         run: |
-          set -euo pipefail
+          # The upstream buildenv uses optional unset variables; do not use nounset.
+          set -eo pipefail
           source ./buildenv.sh beyond2lte
           ./scripts/make_rom.sh --force --no-rom-zip
           test -s "$WORK_DIR/.completed"
