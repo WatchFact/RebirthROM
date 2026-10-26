@@ -59,8 +59,25 @@ SCRIPT_FILE="$STAGE/META-INF/com/google/android/updater-script"
 printf 'ui_print("RebirthROM experimental S10 recovery package");\n' > "$SCRIPT_FILE"
 printf 'ui_print("Target: %s");\n' "$TARGET_CODENAME" >> "$SCRIPT_FILE"
 # A mismatched device aborts before *any* partition is written.
-printf 'assert(getprop("ro.product.device") == "%s" || getprop("ro.build.product") == "%s" || abort("Wrong S10 target: %s"));\n' \
-    "$TARGET_CODENAME" "$TARGET_CODENAME" "$TARGET_CODENAME" >> "$SCRIPT_FILE"
+# For Samsung bootloaders, use the hardware model first. If this recovery
+# does not expose that property, fall back to the device codename.
+# Never let a model reported by the bootloader disagree with this package.
+MODEL_CHECK=""
+IFS=':' read -r -a S10_ALLOWED_MODELS <<< "${TARGET_ASSERT_MODEL:-}"
+for model in "${S10_ALLOWED_MODELS[@]}"; do
+    if [[ ! "$model" =~ ^SM-G[0-9A-Z]+$ ]]; then
+        LOGE "Unexpected target model in configuration: $model"
+        exit 1
+    fi
+    [[ -n "$MODEL_CHECK" ]] && MODEL_CHECK+=" || "
+    MODEL_CHECK+="getprop(\"ro.boot.em.model\") == \"$model\""
+done
+if [[ -z "$MODEL_CHECK" ]]; then
+    LOGE "Cannot package S10 without explicit approved model numbers"
+    exit 1
+fi
+printf 'assert((getprop("ro.boot.em.model") != "" && (%s)) || (getprop("ro.boot.em.model") == "" && (getprop("ro.product.device") == "%s" || getprop("ro.build.product") == "%s")) || abort("Wrong S10 model/device"));\n' \
+    "$MODEL_CHECK" "$TARGET_CODENAME" "$TARGET_CODENAME" >> "$SCRIPT_FILE"
 printf 'unmount("/system");\nunmount("/vendor");\nunmount("/product");\nunmount("/odm");\n' >> "$SCRIPT_FILE"
 
 BROTLI_QUALITY="${UNICA_BROTLI_QUALITY:-6}"
@@ -83,8 +100,10 @@ for part in "${PARTITIONS[@]}"; do
         exit 1
     fi
     img2sdat -o "$STAGE" -B "$STAGE/$part.map" "$STAGE/$part.img"
-    if [[ ! -f "$STAGE/$part.transfer.list" ]] || [[ ! -f "$STAGE/$part.new.dat" ]]; then
-        LOGE "Incomplete $part block-image payload"
+    if [[ ! -s "$STAGE/$part.transfer.list" ]] ||
+            [[ ! -s "$STAGE/$part.new.dat" ]] ||
+            [[ ! -f "$STAGE/$part.patch.dat" ]]; then
+        LOGE "Incomplete $part block-image payload (transfer/new/patch)"
         exit 1
     fi
     brotli --quality="$BROTLI_QUALITY" --output="$STAGE/$part.new.dat.br" "$STAGE/$part.new.dat"

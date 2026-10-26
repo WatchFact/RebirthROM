@@ -26,9 +26,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # These scripts are called directly by the ROM build; syntax tests alone
+          # do not catch a lost Git executable bit (mode 100755).
+          for script in scripts/internal/gen_config_file.sh scripts/internal/build_flashable_zip.sh scripts/internal/build_legacy_flashable_zip.sh; do
+            test -x "$script" || { echo "::error::Not executable: $script"; exit 1; }
+          done
           bash -n scripts/internal/gen_config_file.sh
           bash -n scripts/internal/build_flashable_zip.sh
           bash -n scripts/internal/build_legacy_flashable_zip.sh
+          # The physical-partition installer must require all OTA data streams.
+          grep -q 'part.patch.dat' scripts/internal/build_legacy_flashable_zip.sh
+          grep -q 'ro.boot.em.model' scripts/internal/build_legacy_flashable_zip.sh
+          if grep -Eq '^[[:space:]]*(update_dynamic_partitions|lpmake|BUILD_SUPER_EMPTY)' scripts/internal/build_legacy_flashable_zip.sh; then
+            echo "::error::Dynamic partition operation found in S10 installer"
+            exit 1
+          fi
           bash -n platform/exynos9820/config.sh
           bash -n "target/${{ matrix.target }}/config.sh"
           find platform/exynos9820/patches -name '*.sh' -print0 | xargs -0 -r -n1 bash -n
