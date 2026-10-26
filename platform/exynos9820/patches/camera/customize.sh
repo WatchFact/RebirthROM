@@ -1,3 +1,11 @@
+# Supply explicit ownership and SELinux context for checked-in camera libraries.
+# Otherwise ADD_TO_WORK_DIR falls back to generic system_file labels.
+for S10_CAMERA_LIB in "$MODPATH"/system/lib64/*.so; do
+    [[ -f "$S10_CAMERA_LIB" ]] || continue
+    SET_METADATA "system" "system/lib64/${S10_CAMERA_LIB##*/}" 0 0 644 "u:object_r:system_lib_file:s0" || return 1
+done
+unset S10_CAMERA_LIB
+
 LOG_STEP_IN "- Replacing camera blobs"
 BLOBS_LIST="
 system/lib64/libenn_wrapper_system.so
@@ -34,16 +42,62 @@ done
 
 LOG_STEP_OUT
 
-LOG_STEP_IN
-LOG "- Patching Video SVC Check"
-# Early jump after the log and abort functions when configureSVC fails
-# b LAB_001dd448 -> b LAB_001ddc24
-HEX_PATCH "$WORK_DIR/system/system/lib64/libstagefright.so" "da4a0594e0031a2a22feff17" "da4a0594e0031a2a19000014"
+# These libstagefright instruction sequences came from an older One UI donor.
+# Android 16 firmware can contain different machine code at these offsets.
+# Never replace bytes using an unverified signature or silently claim a fix.
+S10_PATCH_KNOWN_STAGEFRIGHT_SIGNATURE()
+{
+    local description="$1" file="$2" original="$3" replacement="$4"
+    local match_status=0
+    python3 - "$file" "$original" "$replacement" <<'PY' || match_status=$?
+import pathlib
+import sys
 
-LOG "- Patching HDR10+ Check"
-# Skip HDR10+ Recording ASSERT
-# cbz this,LAB_001dde38 -> nop
-HEX_PATCH "$WORK_DIR/system/system/lib64/libstagefright.so" "010140f90a4d0594604d0034" "010140f90a4d05941f2003d5"
+try:
+    data = pathlib.Path(sys.argv[1]).read_bytes()
+    before = bytes.fromhex(sys.argv[2])
+    after = bytes.fromhex(sys.argv[3])
+    if len(before) != len(after):
+        sys.exit(1)
+    if before in data:
+        sys.exit(0)
+    if after in data:
+        sys.exit(2)
+    sys.exit(3)
+except (OSError, ValueError):
+    sys.exit(1)
+PY
+    case "$match_status" in
+        0)
+            HEX_PATCH "$file" "$original" "$replacement" || return 1
+            ;;
+        2)
+            LOG "- $description: known replacement already present"
+            ;;
+        3)
+            LOGW "UNVERIFIED CAMERA COMPATIBILITY: $description has no known signature in ${file//$WORK_DIR/}; leaving binary unchanged"
+            printf '%s\n' "$description: no known libstagefright signature" >> "$WORK_DIR/.unverified-camera-patches"
+            ;;
+        *)
+            LOGE "Could not inspect libstagefright for $description"
+            return 1
+            ;;
+    esac
+}
+
+LOG_STEP_IN
+LOG "- Checking version-specific Video SVC patch"
+# Old donor: b LAB_001dd448 -> b LAB_001ddc24.
+# An unknown donor MUST NOT be patched at guessed offsets.
+S10_PATCH_KNOWN_STAGEFRIGHT_SIGNATURE "Video SVC" \
+    "$WORK_DIR/system/system/lib64/libstagefright.so" \
+    "da4a0594e0031a2a22feff17" "da4a0594e0031a2a19000014" || return 1
+
+LOG "- Checking version-specific HDR10+ patch"
+# Old donor: cbz this,LAB_001dde38 -> nop.
+S10_PATCH_KNOWN_STAGEFRIGHT_SIGNATURE "HDR10+" \
+    "$WORK_DIR/system/system/lib64/libstagefright.so" \
+    "010140f90a4d0594604d0034" "010140f90a4d05941f2003d5" || return 1
 LOG_STEP_OUT
 
 BLOBS_LIST="
