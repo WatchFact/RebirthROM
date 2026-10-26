@@ -41,6 +41,14 @@ MKBOOTIMG_ARGS="$(unpack_bootimg --boot_img "$TMP_DIR/$BOOT_FILE" --out "$TMP_DI
 while IFS= read -r f; do
     LOG "- Extracting $BOOT_FILE/$(basename "$f")"
 
+    # unpack_bootimg may emit an empty ramdisk placeholder for kernel-only
+    # legacy boot images. Preserve it unchanged instead of probing bytes that
+    # do not exist or attempting to unpack an empty cpio stream.
+    if [ ! -s "$f" ]; then
+        LOG "- Skipping empty $BOOT_FILE/$(basename "$f") (no ramdisk to patch)"
+        continue
+    fi
+
     RAMDISK_FORMAT=""
     if [[ "$(READ_BYTES_AT "$f" "0" "2")" == "8b1f" ]]; then
         RAMDISK_FORMAT="gz"
@@ -48,7 +56,7 @@ while IFS= read -r f; do
     if [[ "$(READ_BYTES_AT "$f" "0" "4")" == "184c2102" ]]; then
         RAMDISK_FORMAT="lz4"
     fi
-    if [ ! "$RAMDISK_FORMAT" ]; then
+    if [ -z "$RAMDISK_FORMAT" ]; then
         ABORT "Ramdisk format not valid\n\n$(LC_ALL=C file -b "$f")"
     fi
 
