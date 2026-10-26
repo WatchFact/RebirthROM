@@ -72,7 +72,7 @@ if [[ "$SOURCE_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME" != "$TARGET_DVFSAPP_CONFIG_S
         LOG "- Adding /system/system/priv-app/SamsungDeviceHealthManagerService/SamsungDeviceHealthManagerService.apk/assets/siop_default.xml"
         EVAL "cp -a \"$MODPATH/assets/siop_default.xml\" \"$APKTOOL_DIR/system/priv-app/SamsungDeviceHealthManagerService/SamsungDeviceHealthManagerService.apk/assets/siop_default.xml\""
         LOG "- Adding /system/system/priv-app/SamsungDeviceHealthManagerService/SamsungDeviceHealthManagerService.apk/assets/ssrm_default.xml"
-        EVAL "cp -a \"$MODPATH/assets/siop_default.xml\" \"$APKTOOL_DIR/system/priv-app/SamsungDeviceHealthManagerService/SamsungDeviceHealthManagerService.apk/assets/ssrm_default.xml\""
+        EVAL "cp -a \"$MODPATH/assets/ssrm_default.xml\" \"$APKTOOL_DIR/system/priv-app/SamsungDeviceHealthManagerService/SamsungDeviceHealthManagerService.apk/assets/ssrm_default.xml\""
     fi
 
     # com/sec/android/sdhms/util/Feature
@@ -98,7 +98,7 @@ if [ -f "$SRC_DIR/target/$TARGET_CODENAME/dvfs/siop_model.xml" ]; then
     LOG "- Adding /system/system/priv-app/SamsungDeviceHealthManagerService/SamsungDeviceHealthManagerService.apk/assets/$TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml"
     EVAL "cp -a \"$SRC_DIR/target/$TARGET_CODENAME/dvfs/siop_model.xml\" \"$APKTOOL_DIR/system/priv-app/SamsungDeviceHealthManagerService/SamsungDeviceHealthManagerService.apk/assets/$TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml\""
     LOG "- Adding /system/system/priv-app/SamsungDeviceHealthManagerService/SamsungDeviceHealthManagerService.apk/assets/ssrm_default.xml"
-    EVAL "cp -a \"$MODPATH/assets/siop_default.xml\" \"$APKTOOL_DIR/system/priv-app/SamsungDeviceHealthManagerService/SamsungDeviceHealthManagerService.apk/assets/ssrm_default.xml\""
+    EVAL "cp -a \"$MODPATH/assets/ssrm_default.xml\" \"$APKTOOL_DIR/system/priv-app/SamsungDeviceHealthManagerService/SamsungDeviceHealthManagerService.apk/assets/ssrm_default.xml\""
 else
     if [[ "$SOURCE_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME" != "$TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME" ]] && \
             [[ "$TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME" != "ssrm_default" ]]; then
@@ -108,20 +108,59 @@ else
         S10_SDHMS_APK="$FW_DIR/$S10_SDHMS_FW_PATH/system/system/priv-app/SamsungDeviceHealthManagerService/SamsungDeviceHealthManagerService.apk"
         S10_SDHMS_ASSET="$APKTOOL_DIR/system/priv-app/SamsungDeviceHealthManagerService/SamsungDeviceHealthManagerService.apk/assets/$TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml"
         mkdir -p "$(dirname "$S10_SDHMS_ASSET")"
-        if [ -f "$S10_SDHMS_APK" ] &&
-                unzip -p "$S10_SDHMS_APK" "assets/$TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml" > "$S10_SDHMS_ASSET" &&
+        # Samsung's Android 12 SDHMS APK may store the device-authored
+        # SIOP XML in res/raw instead of assets. Only import the exact
+        # configured S10+ policy, never a similarly named donor policy.
+        S10_SDHMS_ENTRY=""
+        if [ -f "$S10_SDHMS_APK" ]; then
+            for S10_SDHMS_CANDIDATE in \
+                    "assets/$TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml" \
+                    "res/raw/$TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml"; do
+                if unzip -Z1 "$S10_SDHMS_APK" 2>/dev/null |
+                        grep -Fx "$S10_SDHMS_CANDIDATE" >/dev/null; then
+                    S10_SDHMS_ENTRY="$S10_SDHMS_CANDIDATE"
+                    break
+                fi
+            done
+        fi
+
+        S10_SDHMS_VALID=false
+        if [ -n "$S10_SDHMS_ENTRY" ] &&
+                unzip -p "$S10_SDHMS_APK" "$S10_SDHMS_ENTRY" > "$S10_SDHMS_ASSET" &&
                 [ -s "$S10_SDHMS_ASSET" ]; then
-            LOG "- Imported stock $TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml from target firmware"
-        else
+            # Reject non-XML/compiled Android resources and incompatible
+            # document roots rather than silently installing thermal data
+            # the Android 16 donor's SSRM parser may not understand.
+            S10_DONOR_SIOP="$APKTOOL_DIR/system/priv-app/SamsungDeviceHealthManagerService/SamsungDeviceHealthManagerService.apk/assets/$SOURCE_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml"
+            if python3 - "$S10_SDHMS_ASSET" "$S10_DONOR_SIOP" <<'PY'
+import sys
+import xml.etree.ElementTree as ET
+
+try:
+    target = ET.parse(sys.argv[1]).getroot()
+    donor = ET.parse(sys.argv[2]).getroot()
+except (ET.ParseError, OSError) as exc:
+    print(f"Cannot validate stock/donor SIOP XML: {exc}", file=sys.stderr)
+    sys.exit(1)
+if target.tag != "siop_document" or donor.tag != target.tag:
+    print(f"Incompatible SIOP XML roots: stock={target.tag}, donor={donor.tag}", file=sys.stderr)
+    sys.exit(1)
+PY
+            then
+                S10_SDHMS_VALID=true
+                LOG "- Imported verified stock $TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml from $S10_SDHMS_ENTRY"
+            fi
+        fi
+
+        if ! $S10_SDHMS_VALID; then
             rm -f "$S10_SDHMS_ASSET"
-            # Android 12 stock APK policy names/formats may differ from donor.
-            # Log real evidence instead of substituting an S24 thermal table.
             if [ -f "$S10_SDHMS_APK" ]; then
                 LOGW "Target stock SDHMS APK: $S10_SDHMS_APK"
-                LOGW "Available stock thermal/DVFS assets:"
+                LOGW "Matching S10 and default stock SIOP/DVFS assets:"
                 unzip -Z1 "$S10_SDHMS_APK" 2>/dev/null |
                     grep -Ei '(^|/)(siop|ssrm|dvfs|thermal)[^/]*$' |
-                    head -60 || true
+                    grep -Ei '(beyond|exynos9820|default|^assets/)' |
+                    head -100 || true
             else
                 LOGW "Target stock SDHMS APK not found: $S10_SDHMS_APK"
             fi
@@ -129,8 +168,9 @@ else
             find "$FW_DIR/$S10_SDHMS_FW_PATH" -type f -print 2>/dev/null |
                 grep -Ei '/[^/]*(siop|ssrm|dvfs)[^/]*$' |
                 head -60 || true
-            _LOG "Missing verified S10 SSRM policy: $TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml (do not substitute donor thermal data)"
+            _LOG "Missing or incompatible verified S10 SSRM policy: $TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml (do not substitute donor thermal data)"
         fi
+        unset S10_SDHMS_ENTRY S10_SDHMS_CANDIDATE S10_SDHMS_VALID S10_DONOR_SIOP
         unset S10_SDHMS_FW_PATH S10_SDHMS_APK S10_SDHMS_ASSET
     fi
 fi
