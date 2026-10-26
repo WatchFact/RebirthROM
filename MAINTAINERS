@@ -7,6 +7,3 @@ S: Maintained
 F: platform/exynos990/*
 F: target/c1s/*
 F: target/c2s/*
-F: target/x1s/*
-F: target/y2s/*
-F: target/z3s/*

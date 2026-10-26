@@ -29,6 +29,8 @@ It is based on the UN1CA build system which allows automatic downloading/extract
 
 ArtisanROM Aether supports devices using the Exynos 990 SoC
 
+**This branch currently retains only Galaxy Note20 targets (`c1s` and `c2s`).** The Galaxy S20/S20+/S20 Ultra targets (`x1s`, `y2s`, `z3s`) were removed. The S10+ reference implementation is kept separately on [`artisanrom-982x`](https://github.com/WatchFact/RebirthROM/tree/artisanrom-982x); it has not been merged or boot-validated in this branch.
+
 Any form of contribution, suggestions, bug report or feature request for the project will be welcome.
 
 # Features
