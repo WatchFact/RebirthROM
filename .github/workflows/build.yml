@@ -54,6 +54,11 @@ jobs:
         run: |
           set -euo pipefail
           python3 tests/validate_source_resources.py
+      - name: Verify tracked Samsung prebuilt dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/validate_prebuilt_references.py
       - name: Parse workflow YAML syntax
         shell: bash
         run: |
