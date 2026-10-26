@@ -74,12 +74,17 @@ do
 done
 LOG_STEP_OUT
 
+# Polarr vendor a26xxx has no matching prebuilt in this tree; skip it
+# rather than abort the entire S10 camera integration with a missing donor.
+if [ -d "$SRC_DIR/prebuilts/samsung/a26xxx" ]; then
 LOG_STEP_IN "- Adding A26 (a26xxx) Polarr SDK blobs"
 ADD_TO_WORK_DIR "a26xxx" "system" "system/etc/public.libraries-polarr.txt" 0 0 644 "u:object_r:system_file:s0"
 ADD_TO_WORK_DIR "a26xxx" "system" "system/lib64/libBestComposition.polarr.so" 0 0 644 "u:object_r:system_lib_file:s0"
 ADD_TO_WORK_DIR "a26xxx" "system" "system/lib64/libFeature.polarr.so" 0 0 644 "u:object_r:system_lib_file:s0"
 ADD_TO_WORK_DIR "a26xxx" "system" "system/lib64/libTracking.polarr.so" 0 0 644 "u:object_r:system_lib_file:s0"
 LOG_STEP_OUT
+
+fi
 
 LOG_STEP_IN "- Cleaning SamsungCamera OAT"
 DELETE_FROM_WORK_DIR "system" "system/priv-app/SamsungCamera/oat"

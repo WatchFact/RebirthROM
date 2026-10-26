@@ -1,0 +1,2 @@
+# Do not compile an unpinned external kernel main branch into an experimental ROM.
+# Re-enable only after pinning a reviewed kernel revision and validating its boot images.

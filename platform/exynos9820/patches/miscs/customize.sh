@@ -1,10 +1,5 @@
-LOG "- Disabling encryption"
-LINE=$(sed -n "/^\/dev\/block\/by-name\/userdata/=" "$WORK_DIR/vendor/etc/fstab.exynos9820")
-sed -i "${LINE}s/,fileencryption=ice//g" "$WORK_DIR/vendor/etc/fstab.exynos9820"
-
-# ODE
-sed -i -e "/ODE/d" -e "/keydata/d" -e "/keyrefuge/d" "$WORK_DIR/vendor/etc/fstab.exynos9820"
-
+# Keep the device's original userdata filesystem/encryption unchanged.
+# Migration to f2fs and removal of encryption are NOT part of a ROM port.
 LOG_STEP_IN "- Enabling updateable APEX images"
 SET_PROP "vendor" "ro.apex.updatable" "true"
 LOG_STEP_OUT
