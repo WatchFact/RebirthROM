@@ -63,6 +63,7 @@ jobs:
           [[ "$TARGET_OS_BUILD_SYSTEM_EXT_PARTITION" == false ]]
           [[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == essi ]]
           [[ "$TARGET_BOARD_API_LEVEL" == 31 ]]
+          [[ "$TARGET_BOOT_IMAGE_SHA256" == none ]]
           # Reject false "native donor stack" for Exynos9820.
           [[ "$SOURCE_USE_NATIVE_DISPLAY_STACK" == false ]]
           [[ "$SOURCE_USE_NATIVE_FINGERPRINT_UI" == false ]]
