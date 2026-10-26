@@ -53,6 +53,17 @@ else
     fi
 fi
 
+if [[ "$TARGET_PLATFORM" == "exynos9820" ]]; then
+    # Older S10 devices have no super partition and require ext4 on the stock
+    # physical partition map. Reject accidental donor/device ABI leakage.
+    if [[ "${TARGET_USE_DYNAMIC_PARTITIONS:-false}" != "false" ]] ||
+            [[ "${TARGET_OS_FILE_SYSTEM_TYPE:-}" != "ext4" ]] ||
+            [[ "${TARGET_OS_BUILD_SYSTEM_EXT_PARTITION:-}" != "false" ]]; then
+        LOGE "Exynos9820 must use static ext4 with system_ext integrated in system"
+        exit 1
+    fi
+fi
+
 if [ ! "$TARGET_OS_SINGLE_SYSTEM_IMAGE" ]; then
     LOGE "TARGET_OS_SINGLE_SYSTEM_IMAGE is not set!"
     exit 1

@@ -1,0 +1,9 @@
+# Exynos 9820 original non-dynamic Samsung partition layout.
+# Recovery/OS use /dev/block/by-name links. Verify real devices/PIT before release.
+/dev/block/by-name/system /system ext4 ro wait
+/dev/block/by-name/vendor /vendor ext4 ro wait
+/dev/block/by-name/product /product ext4 ro wait
+/dev/block/by-name/odm /odm ext4 ro wait
+/dev/block/by-name/boot /boot emmc defaults defaults
+/dev/block/by-name/recovery /recovery emmc defaults defaults
+/dev/block/by-name/dtbo /dtbo emmc defaults defaults

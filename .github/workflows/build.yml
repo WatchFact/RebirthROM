@@ -1,37 +1,49 @@
-name: Verify S10 source layout
-
+name: Verify S10 integration
 on:
   push:
-    branches:
-      - sixteen-qpr2
+    branches: [sixteen-qpr2]
   pull_request:
   workflow_dispatch:
-
 jobs:
-  verify_s10_sources:
-    name: Validate S10-only source tree
+  validate:
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [beyond0lte, beyond1lte, beyond2lte, beyondx]
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Verify targets and platform
+      - uses: actions/checkout@v4
+      - name: Validate shell scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/internal/gen_config_file.sh
+          bash -n scripts/internal/build_flashable_zip.sh
+          bash -n scripts/internal/build_legacy_flashable_zip.sh
+          bash -n platform/exynos9820/config.sh
+          bash -n "target/${{ matrix.target }}/config.sh"
+          find platform/exynos9820/patches -name '*.sh' -print0 | xargs -0 -r -n1 bash -n
+      - name: Verify S10 target configurations and physical partition layout
         shell: bash
         run: |
           set -euo pipefail
           expected=(beyond0lte beyond1lte beyond2lte beyondx)
           mapfile -t actual < <(find target -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
-          if [[ "${actual[*]}" != "${expected[*]}" ]]; then
-            printf 'Unexpected target folders: %s\n' "${actual[*]}" >&2
-            exit 1
-          fi
-          test -d platform/exynos9820
+          [[ "${actual[*]}" == "${expected[*]}" ]]
           test ! -d platform/exynos990
-          test ! -d prebuilts/samsung/c1sxxx
-          test ! -d prebuilts/samsung/c2sxxx
-          for device in "${expected[@]}"; do
-            test -f "target/$device/config.sh"
-            grep -q 'TARGET_PLATFORM="exynos9820"' "target/$device/config.sh"
+          test -f platform/exynos9820/installer/recovery.fstab
+          test -f platform/exynos9820/patches/extremekrnl/disable
+          source platform/exynos9820/config.sh
+          source "target/${{ matrix.target }}/config.sh"
+          [[ "$TARGET_CODENAME" == "${{ matrix.target }}" ]]
+          [[ "$TARGET_PLATFORM" == "exynos9820" ]]
+          [[ "$TARGET_USE_DYNAMIC_PARTITIONS" == false ]]
+          [[ "$TARGET_OS_FILE_SYSTEM_TYPE" == ext4 ]]
+          [[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == essi ]]
+          [[ "$TARGET_OS_BUILD_SYSTEM_EXT_PARTITION" == false ]]
+          test -f "target/$TARGET_CODENAME/camera/camera-feature.xml"
+          for part in system vendor product odm; do
+            grep -qF "/dev/block/by-name/$part " platform/exynos9820/installer/recovery.fstab
           done
-          echo 'All S10 legacy source targets are present.'
-          echo '::warning::S10 build/flash workflow is not yet enabled: configuration ABI, static partition installer, boot images, and device integration require porting and validation.'
+          echo "S10 integration source checks passed for $TARGET_CODENAME"
+          echo "::warning::Source checks are not hardware boot verification. ROM publishing disabled."

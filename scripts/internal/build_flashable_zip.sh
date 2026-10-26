@@ -6,6 +6,12 @@
 source "$SRC_DIR/scripts/utils/build_utils.sh" || exit 1
 source "$SRC_DIR/scripts/utils/install_utils.sh" || exit 1
 
+# Samsung Galaxy S10 devices use physical partitions, not super metadata.
+# Never allow their packages through the dynamic-partition generator.
+if ! ${TARGET_USE_DYNAMIC_PARTITIONS:-true}; then
+    exec bash "$SRC_DIR/scripts/internal/build_legacy_flashable_zip.sh" "$@"
+fi
+
 SOURCE_FIRMWARE_PATH="$(cut -d "/" -f 1 -s <<< "$SOURCE_FIRMWARE")_$(cut -d "/" -f 2 -s <<< "$SOURCE_FIRMWARE")"
 TARGET_FIRMWARE_PATH="$(cut -d "/" -f 1 -s <<< "$TARGET_FIRMWARE")_$(cut -d "/" -f 2 -s <<< "$TARGET_FIRMWARE")"
 
