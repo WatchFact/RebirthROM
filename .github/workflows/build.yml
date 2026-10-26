@@ -49,6 +49,11 @@ jobs:
           echo "Parsed $total tracked shell files; syntax failures: $failed"
           (( total >= 100 )) || { echo "::error::Unexpectedly few scripts scanned"; exit 1; }
           (( failed == 0 ))
+      - name: Parse XML, JSON and Python source resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/validate_source_resources.py
       - name: Parse workflow YAML syntax
         shell: bash
         run: |
