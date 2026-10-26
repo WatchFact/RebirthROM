@@ -143,6 +143,9 @@ jobs:
           } > compile-report/result.txt
           find out/target/beyond2lte -maxdepth 1 -name '*.log' -type f \
             -exec cp {} compile-report/ \; 2>/dev/null || true
+          # Preserve the exact thermal-policy/parser evidence after an abort.
+          python3 scripts/collect_s10_thermal_evidence.py out compile-report/thermal
+
 
       - name: Upload compilation report
         if: always()

@@ -81,7 +81,7 @@ EOF
 cat > "$ROOT/bin/7z" <<'EOF'
 #!/usr/bin/env bash
 set -e
-[[ "$1" == "a" && "$2" == "-tzip" ]]
+[[ "$1" == "a" && "$2" == "-tzip" && "$3" == "-mx=5" ]]
 archive="$5"
 shift 5
 zip -q -0 -r "$archive" "$@"
@@ -124,6 +124,15 @@ for p in system vendor product odm; do
   unzip -Z1 "$ARCHIVE" | grep -qx "$p.patch.dat"
   [[ "$SCRIPT" == *"/dev/block/by-name/$p"* ]]
 done
+unzip -p "$ARCHIVE" check-partitions.sh > "$ROOT/check-partitions.sh"
+sh -n "$ROOT/check-partitions.sh"
+python3 "$REPO/tests/test_recovery_capacity.py" "$ROOT/check-partitions.sh"
+[[ "$SCRIPT" == *'NOT SAFE TO FLASH'* ]]
+CHECK_LINE="$(grep -n 'run_program' <<< "$SCRIPT" | cut -d: -f1)"
+WRITE_LINE="$(grep -n 'block_image_update' <<< "$SCRIPT" | head -1 | cut -d: -f1)"
+(( CHECK_LINE < WRITE_LINE ))
+test -s "$ARCHIVE.sha256"
+sha256sum --check --status "$ARCHIVE.sha256"
 # Regression: missing patch payload must fail before producing a valid ZIP.
 rm -f "$ARCHIVE"
 export S10_MOCK_NO_PATCH=1

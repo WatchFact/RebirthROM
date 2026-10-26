@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Dedicated recovery ZIP generator for stock-layout Exynos 9820 devices.
-# No super.img, repartitioning, userdata format, or automatic boot flash.
+# No super.img, repartitioning or userdata format; only a pinned boot image.
 set -eo pipefail
 source "$SRC_DIR/scripts/utils/build_utils.sh" || exit 1
 source "$SRC_DIR/scripts/utils/install_utils.sh" || exit 1
@@ -79,6 +79,7 @@ cp -a "$SRC_DIR/prebuilts/bootable/deprecated-ota/updater" \
 SCRIPT_FILE="$STAGE/META-INF/com/google/android/updater-script"
 
 printf 'ui_print("RebirthROM experimental S10 recovery package");\n' > "$SCRIPT_FILE"
+printf 'ui_print("UNVERIFIED EXPERIMENTAL BUILD - NOT SAFE TO FLASH");\n' >> "$SCRIPT_FILE"
 printf 'ui_print("Target: %s");\n' "$TARGET_CODENAME" >> "$SCRIPT_FILE"
 # A mismatched device aborts before *any* partition is written.
 # For Samsung bootloaders, use the hardware model first. If this recovery
@@ -101,6 +102,38 @@ fi
 printf 'assert((getprop("ro.boot.em.model") != "" && (%s)) || (getprop("ro.boot.em.model") == "" && (getprop("ro.product.device") == "%s" || getprop("ro.build.product") == "%s")) || abort("Wrong S10 model/device"));\n' \
     "$MODEL_CHECK" "$TARGET_CODENAME" "$TARGET_CODENAME" >> "$SCRIPT_FILE"
 printf 'unmount("/system");\nunmount("/vendor");\nunmount("/product");\nunmount("/odm");\n' >> "$SCRIPT_FILE"
+
+# Check all destinations before any write, including a failed unmount.
+CAPACITY_CHECK="$STAGE/check-partitions.sh"
+cat > "$CAPACITY_CHECK" <<'CHECK'
+#!/sbin/sh
+set -eu
+command -v blockdev >/dev/null 2>&1 || exit 1
+check_partition() {
+    node="$1"
+    expected="$2"
+    [ -b "$node" ] || exit 1
+    actual="$(blockdev --getsize64 "$node")" || exit 1
+    case "$actual" in ''|*[!0-9]*) exit 1 ;; esac
+    [ "$actual" = "$expected" ] || exit 1
+    resolved="$(readlink -f "$node")" || exit 1
+    [ -n "$resolved" ] || exit 1
+    while read -r device mountpoint rest; do
+        [ "$(readlink -f "$device" 2>/dev/null || true)" != "$resolved" ] || exit 1
+    done < /proc/mounts
+}
+CHECK
+for part in "${PARTITIONS[@]}" boot; do
+    size_var="TARGET_${part^^}_PARTITION_SIZE"
+    block="$(GET_DEVICE_FROM_MOUNTPOINT "/$part")"
+    node="${block//\"/}"
+    [[ "$node" =~ ^/dev/block/([a-zA-Z0-9_.-]+/)*by-name/[a-zA-Z0-9_.-]+$ ]] || {
+        LOGE "Invalid static block destination: $node"; exit 1;
+    }
+    printf "check_partition '%s' '%s'\n" "$node" "${!size_var}" >> "$CAPACITY_CHECK"
+done
+printf 'assert(package_extract_file("check-partitions.sh", "/tmp/rebirth-check-partitions.sh"));\n' >> "$SCRIPT_FILE"
+printf 'assert(run_program("/sbin/sh", "/tmp/rebirth-check-partitions.sh") == 0 || abort("Physical partition layout or mount state is unsafe"));\n' >> "$SCRIPT_FILE"
 
 BROTLI_QUALITY="${UNICA_BROTLI_QUALITY:-6}"
 if ! [[ "$BROTLI_QUALITY" =~ ^([0-9]|1[01])$ ]]; then
@@ -135,7 +168,7 @@ for part in "${PARTITIONS[@]}"; do
     printf 'assert(block_image_update(%s, package_extract_file("%s.transfer.list"), "%s.new.dat.br", "%s.patch.dat"));\n' \
         "$block" "$part" "$part" "$part" >> "$SCRIPT_FILE"
 done
-printf 'set_progress(1.0);\nui_print("System partitions installed.");\n' >> "$SCRIPT_FILE"
+printf 'ui_print("System partitions installed.");\n' >> "$SCRIPT_FILE"
 # Only the exact reviewed image is permitted to replace the boot partition.
 cp -a "$BOOT_IMAGE" "$STAGE/boot.img"
 BOOT_BLOCK="$(GET_DEVICE_FROM_MOUNTPOINT "/boot")"
@@ -143,6 +176,8 @@ printf 'ui_print("Writing verified boot.img...");\n' >> "$SCRIPT_FILE"
 printf 'assert(package_extract_file("boot.img", %s) || abort("Boot image installation failed"));\n' \
     "$BOOT_BLOCK" >> "$SCRIPT_FILE"
 
+
+printf 'set_progress(1.0);\n' >> "$SCRIPT_FILE"
 
 # DTBO/recovery/AVB remain untouched. The explicitly pinned boot image above
 # still does not establish boot compatibility or verified AVB state.
@@ -152,10 +187,12 @@ archive="$OUT_DIR/RebirthROM_EXPERIMENTAL_${ROM_VERSION}_${TARGET_CODENAME}.zip"
 unsigned="$STAGE/rom-unsigned.zip"
 (
     cd "$STAGE"
-    7z a -tzip -mx=0 -mmt=on "$unsigned" META-INF \
-        *.new.dat.br *.transfer.list *.patch.dat boot.img
+    7z a -tzip -mx=5 -mmt=on "$unsigned" META-INF \
+        *.new.dat.br *.transfer.list *.patch.dat boot.img check-partitions.sh
 )
 signapk -w "$SRC_DIR/security/aosp_testkey.x509.pem" \
     "$SRC_DIR/security/aosp_testkey.pk8" "$unsigned" "$archive"
 test -s "$archive" || { LOGE "Missing generated ZIP"; exit 1; }
-LOG "Experimental recovery artifact: $archive"
+unzip -tqq "$archive" || exit 1
+sha256sum "$archive" > "$archive.sha256"
+LOG "UNVERIFIED, NOT SAFE TO FLASH: $archive"

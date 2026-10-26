@@ -38,7 +38,7 @@ COPY_SOURCE_FIRMWARE()
                 LOG_STEP_OUT
             elif [[ "$f" == "system" ]]; then
                 LOG_STEP_IN
-                SET_PROP "system" "ro.product.device" "$(GET_PROP "$FW_DIR/$SOURCE_FIRMWARE_PATH/odm/etc/build.prop" "ro.product.odm.device")"
+                SET_PROP "system" "ro.product.device" "$TARGET_CODENAME"
                 LOG_STEP_OUT
             fi
         else

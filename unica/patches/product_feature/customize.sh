@@ -185,45 +185,24 @@ if ! $PRESERVE_NATIVE_DISPLAY_STACK && ! $SOURCE_COMMON_SUPPORT_DYN_RESOLUTION_C
 
         SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_COMMON_CONFIG_DYN_RESOLUTION_CONTROL" "WQHD,FHD,HD"
 
-        if [[ "$TARGET_PLATFORM" == "exynos990" ]]; then
-            # Keep the Android 16 multi-resolution 64-bit graphics stack
-            # together.  The S926B runtime matches libgui/libui and avoids
-            # BLASTBufferQueue ABI crashes in SurfaceView clients (camera and
-            # fingerprint).  Exynos990 still boots a 32-bit zygote, so bridge
-            # both MemoryIntArray JNI contracts in framework.jar while leaving
-            # the source 32-bit runtime untouched.
-            APPLY_PATCH "system" "system/framework/framework.jar" \
-                "$MODPATH/resolution/framework.jar/0002-Bridge-MemoryIntArray-for-mixed-32-64-bit-runtime.patch"
-            ADD_TO_WORK_DIR "e2sxxx" "system" "system/bin/bootanimation" \
-                0 2000 755 "u:object_r:bootanim_exec:s0"
-            ADD_TO_WORK_DIR "e2sxxx" "system" "system/bin/surfaceflinger" \
-                0 2000 755 "u:object_r:surfaceflinger_exec:s0"
-            ADD_TO_WORK_DIR "e2sxxx" "system" "system/lib64/libgui.so" \
-                0 0 644 "u:object_r:system_lib_file:s0"
-            ADD_TO_WORK_DIR "e2sxxx" "system" "system/lib64/libui.so" \
-                0 0 644 "u:object_r:system_lib_file:s0"
-            ADD_TO_WORK_DIR "e2sxxx" "system" "system/lib64/libandroid_runtime.so" \
-                0 0 644 "u:object_r:system_lib_file:s0"
-        else
-            ADD_TO_WORK_DIR "$([[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == "qssi" ]] && echo "b0qxxx" || echo "b0sxxx")" \
-                "system" "system/bin/bootanimation" 0 2000 755 "u:object_r:bootanim_exec:s0"
-            ADD_TO_WORK_DIR "$([[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == "qssi" ]] && echo "b0qxxx" || echo "b0sxxx")" \
-                "system" "system/bin/surfaceflinger" 0 2000 755 "u:object_r:surfaceflinger_exec:s0"
-            ADD_TO_WORK_DIR "$([[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == "qssi" ]] && echo "b0qxxx" || echo "b0sxxx")" \
-                "system" "system/lib/libandroid_runtime.so" 0 0 644 "u:object_r:system_lib_file:s0"
-            ADD_TO_WORK_DIR "$([[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == "qssi" ]] && echo "b0qxxx" || echo "b0sxxx")" \
-                "system" "system/lib64/libandroid_runtime.so" 0 0 644 "u:object_r:system_lib_file:s0"
+        ADD_TO_WORK_DIR "$([[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == "qssi" ]] && echo "b0qxxx" || echo "b0sxxx")" \
+            "system" "system/bin/bootanimation" 0 2000 755 "u:object_r:bootanim_exec:s0"
+        ADD_TO_WORK_DIR "$([[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == "qssi" ]] && echo "b0qxxx" || echo "b0sxxx")" \
+            "system" "system/bin/surfaceflinger" 0 2000 755 "u:object_r:surfaceflinger_exec:s0"
+        ADD_TO_WORK_DIR "$([[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == "qssi" ]] && echo "b0qxxx" || echo "b0sxxx")" \
+            "system" "system/lib/libandroid_runtime.so" 0 0 644 "u:object_r:system_lib_file:s0"
+        ADD_TO_WORK_DIR "$([[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == "qssi" ]] && echo "b0qxxx" || echo "b0sxxx")" \
+            "system" "system/lib64/libandroid_runtime.so" 0 0 644 "u:object_r:system_lib_file:s0"
 
-            # Ensure IQtiComposer support on legacy QSSI targets. This is an
-            # upstream compatibility patch and must not touch Exynos 990.
-            if [ "$TARGET_PLATFORM_SDK_VERSION" -lt "36" ] && \
-                    [[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == "qssi" ]] && \
-                    ! grep -q -r "IQtiComposer" "$WORK_DIR/vendor/etc/vintf"; then
-                # [b.lt #0x72b2b0] -> [nop]
-                HEX_PATCH "$WORK_DIR/system/system/bin/surfaceflinger" \
-                    "9f8a00712b03005400068052" \
-                    "9f8a00711f2003d500068052"
-            fi
+        # Ensure IQtiComposer support on legacy QSSI targets. This is an
+        # upstream compatibility patch for Qualcomm targets only.
+        if [ "$TARGET_PLATFORM_SDK_VERSION" -lt "36" ] && \
+                [[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == "qssi" ]] && \
+                ! grep -q -r "IQtiComposer" "$WORK_DIR/vendor/etc/vintf"; then
+            # [b.lt #0x72b2b0] -> [nop]
+            HEX_PATCH "$WORK_DIR/system/system/bin/surfaceflinger" \
+                "9f8a00712b03005400068052" \
+                "9f8a00711f2003d500068052"
         fi
         ADD_TO_WORK_DIR "b0qxxx" "system" "system/media/battery_error.spi" 0 0 644 "u:object_r:system_file:s0"
         ADD_TO_WORK_DIR "b0qxxx" "system" "system/media/battery_low.spi" 0 0 644 "u:object_r:system_file:s0"
@@ -253,7 +232,7 @@ if ! $PRESERVE_NATIVE_DISPLAY_STACK && ! $SOURCE_COMMON_SUPPORT_DYN_RESOLUTION_C
         ADD_TO_WORK_DIR "b0qxxx" "system" "system/media/water_protection_usb.spi" 0 0 644 "u:object_r:system_file:s0"
 
         # Select smali patches by the source framework version. The target's
-        # shipping SDK describes its vendor stack and remains 33 on y2s even
+        # shipping SDK describes its vendor stack and remains 31 on S10 even
         # while the ported system framework is Android 16 / SDK 36.
         if [ "$SOURCE_PLATFORM_SDK_VERSION" -ge "36" ]; then
             APPLY_PATCH "system" "system/framework/framework.jar" \
@@ -261,16 +240,6 @@ if ! $PRESERVE_NATIVE_DISPLAY_STACK && ! $SOURCE_COMMON_SUPPORT_DYN_RESOLUTION_C
         else
             APPLY_PATCH "system" "system/framework/framework.jar" \
                 "$MODPATH/resolution/framework.jar/0001-Enable-FW_DYNAMIC_RESOLUTION_CONTROL.patch"
-        fi
-        if [[ "$TARGET_PLATFORM" == "exynos990" ]] && [ "$SOURCE_PLATFORM_SDK_VERSION" -lt "36" ]; then
-            # FW_VRR_RESOLUTION_POLICY makes LocalDisplayAdapter publish the
-            # default (QHD) mode dimensions even while SurfaceFlinger is using
-            # an active FHD/120 mode. The resulting QHD physical viewport crops
-            # the FHD framebuffer. Always report the active SF mode on Exynos990.
-            APPLY_PATCH "system" "system/framework/services.jar" \
-                "$MODPATH/resolution/services.jar/0001-Report-active-SF-mode-dimensions.patch"
-        elif [[ "$TARGET_PLATFORM" == "exynos990" ]]; then
-            LOG "Android 16 already derives geometry and density from the active SF mode; skipping legacy LocalDisplayAdapter patch"
         fi
         if [ "$SOURCE_PLATFORM_SDK_VERSION" -lt "36" ]; then
             APPLY_PATCH "system" "system/framework/gamemanager.jar" \
