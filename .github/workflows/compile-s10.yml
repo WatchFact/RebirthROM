@@ -69,6 +69,16 @@ jobs:
           free -h
           df -h /
 
+      - name: Configure Git identity for toolchain patches
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          test -n "$(git config --global user.name)"
+          test -n "$(git config --global user.email)"
+          echo "Git committer configured for Android-tools patch application."
+
       - name: Build Android image and APK tooling
         shell: bash
         run: |
@@ -125,7 +135,7 @@ jobs:
           {
             echo "Commit: $GITHUB_SHA"
             echo "Target: SM-G975F / beyond2lte"
-            echo "Job result: \${{ job.status }}"
+            echo "Job result: ${{ job.status }}"
             echo "Disk:"
             df -h /
             echo "Completed work-dir marker:"
