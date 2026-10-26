@@ -1,0 +1,141 @@
+name: Compile RebirthROM S10+
+
+on:
+  push:
+    branches: [sixteen-qpr2]
+    paths:
+      - .github/workflows/compile-s10.yml
+      - scripts/**
+      - target/beyond2lte/**
+      - platform/exynos9820/**
+      - unica/**
+      - buildenv.sh
+      - .gitmodules
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: s10-plus-compile-sixteen-qpr2
+  cancel-in-progress: true
+
+jobs:
+  compile-beyond2lte:
+    name: Compile Galaxy S10+ (beyond2lte)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Xmx3g"
+      JAVA_TOOL_OPTIONS: "-Xmx3g"
+
+    steps:
+      - name: Checkout source and required tool submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Make room for firmware extraction
+        shell: bash
+        run: |
+          set -euo pipefail
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost || true
+          sudo docker image prune --all --force || true
+          sudo docker builder prune --all --force || true
+          df -h /
+
+      - name: Set up Java 17 and dependencies
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Install native build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            p7zip-full jq attr ccache clang cmake ffmpeg golang \
+            libbrotli-dev libgtest-dev libprotobuf-dev libunwind-dev libpcre2-dev \
+            libzstd-dev lld protobuf-compiler webp curl xxd patchelf flex bison \
+            libarchive-tools build-essential pcre2-utils libssl-dev \
+            python3 python3-pip zstd lz4
+          free -h
+          df -h /
+
+      - name: Build Android image and APK tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./scripts/build_dependencies.sh
+          df -h /
+
+      - name: Download and extract Android 16 source firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          source ./buildenv.sh beyond2lte
+          ./scripts/download_fw.sh --force --ignore-target
+          ./scripts/extract_fw.sh --force --ignore-target
+          SOURCE_DIR="$(cut -d/ -f1 <<< "$SOURCE_FIRMWARE")_$(cut -d/ -f2 <<< "$SOURCE_FIRMWARE")"
+          if [[ -f "$FW_DIR/$SOURCE_DIR/.extracted" ]]; then
+            rm -rf "$ODIN_DIR/$SOURCE_DIR"
+          fi
+          df -h /
+
+      - name: Download and extract Galaxy S10+ target firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          source ./buildenv.sh beyond2lte
+          ./scripts/download_fw.sh --force --ignore-source
+          ./scripts/extract_fw.sh --force --ignore-source
+          TARGET_DIR="$(cut -d/ -f1 <<< "$TARGET_FIRMWARE")_$(cut -d/ -f2 <<< "$TARGET_FIRMWARE")"
+          if [[ -f "$FW_DIR/$TARGET_DIR/.extracted" ]]; then
+            rm -rf "$ODIN_DIR/$TARGET_DIR"
+          fi
+          df -h /
+
+      - name: Compile the S10+ ROM work directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          source ./buildenv.sh beyond2lte
+          ./scripts/make_rom.sh --force --no-rom-zip
+          test -s "$WORK_DIR/.completed"
+          test -s "$WORK_DIR/system/system/build.prop"
+          test -s "$WORK_DIR/vendor/build.prop"
+          echo "COMPILED_WORK_DIR=$WORK_DIR" >> "$GITHUB_ENV"
+          df -h /
+
+      - name: Record compilation evidence
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p compile-report
+          {
+            echo "Commit: $GITHUB_SHA"
+            echo "Target: SM-G975F / beyond2lte"
+            echo "Job result: \${{ job.status }}"
+            echo "Disk:"
+            df -h /
+            echo "Completed work-dir marker:"
+            test -s out/target/beyond2lte/work_dir/.completed && echo yes || echo no
+          } > compile-report/result.txt
+          find out/target/beyond2lte -maxdepth 1 -name '*.log' -type f \
+            -exec cp {} compile-report/ \; 2>/dev/null || true
+
+      - name: Upload compilation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s10-plus-compilation-report
+          path: compile-report
+          retention-days: 7
+          if-no-files-found: warn
