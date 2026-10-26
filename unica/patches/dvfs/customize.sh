@@ -102,7 +102,20 @@ if [ -f "$SRC_DIR/target/$TARGET_CODENAME/dvfs/siop_model.xml" ]; then
 else
     if [[ "$SOURCE_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME" != "$TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME" ]] && \
             [[ "$TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME" != "ssrm_default" ]]; then
-        _LOG "File not found: $SRC_DIR/target/$TARGET_CODENAME/dvfs/siop_model.xml"
+        # Legacy S10 trees do not ship siop_model.xml. Try to obtain the
+        # matching, device-authored policy from the extracted target stock APK.
+        S10_SDHMS_FW_PATH="$(cut -d "/" -f 1 -s <<< "$TARGET_FIRMWARE")_$(cut -d "/" -f 2 -s <<< "$TARGET_FIRMWARE")"
+        S10_SDHMS_APK="$FW_DIR/$S10_SDHMS_FW_PATH/system/system/priv-app/SamsungDeviceHealthManagerService/SamsungDeviceHealthManagerService.apk"
+        S10_SDHMS_ASSET="$APKTOOL_DIR/system/priv-app/SamsungDeviceHealthManagerService/SamsungDeviceHealthManagerService.apk/assets/$TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml"
+        mkdir -p "$(dirname "$S10_SDHMS_ASSET")"
+        if [ -f "$S10_SDHMS_APK" ] &&
+                unzip -p "$S10_SDHMS_APK" "assets/$TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml" > "$S10_SDHMS_ASSET"; then
+            LOG "- Imported stock $TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml from target firmware"
+        else
+            rm -f "$S10_SDHMS_ASSET"
+            _LOG "Missing S10 SSRM policy in target stock firmware: $TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml"
+        fi
+        unset S10_SDHMS_FW_PATH S10_SDHMS_APK S10_SDHMS_ASSET
     fi
 fi
 
