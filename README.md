@@ -27,16 +27,16 @@ It's based on the latest and greatest iteration of Samsung's UX and it also incl
 
 It is based on the UN1CA build system which allows automatic downloading/extraction of the firmware, applying the required patches and generating a flashable zip package for the specified target device.
 
-ArtisanROM Aether supports devices using the Exynos 990 SoC
+**Device source targets on `sixteen-qpr2`: Galaxy S10e (`beyond0lte`), Galaxy S10 (`beyond1lte`), Galaxy S10+ (`beyond2lte`), and Galaxy S10 5G (`beyondx`)**, all on Exynos 9820.
 
-**This branch currently retains only Galaxy Note20 targets (`c1s` and `c2s`).** The Galaxy S20/S20+/S20 Ultra targets (`x1s`, `y2s`, `z3s`) were removed. The S10+ reference implementation is kept separately on [`artisanrom-982x`](https://github.com/WatchFact/RebirthROM/tree/artisanrom-982x); it has not been merged or boot-validated in this branch.
+The complete legacy S10 device and Exynos 9820 platform trees were imported from [`artisanrom-982x`](https://github.com/WatchFact/RebirthROM/tree/artisanrom-982x). Other target families and their dedicated platform/prebuilt files have been removed from this branch. **This is source preparation only: the older S10 configurations have not been migrated to the newer build API, and the legacy static-partition installer and boot compatibility are not validated. Do not flash a generated package from this source as-is.**
 
 Any form of contribution, suggestions, bug report or feature request for the project will be welcome.
 
 # Features
 ### Core features:
 - Based on the latest stable Galaxy S24+ firmware
-- EROFS powered
+- Legacy S10 partition layout uses ext4; current build system still needs compatibility work
 - Galaxy S26 wallpapers/sounds included
 - Galaxy AI support
   - Audio eraser
@@ -75,9 +75,7 @@ Any form of contribution, suggestions, bug report or feature request for the pro
 
 ### ArtisanROM-exclusive features:
 - Integrated OTA updates app
-- Completely upstreamed kernels*
-
-\* Exynos990
+- S10 kernel integration and validation pending
 
 ### UN1CA-exclusive features:
 - Native/live blur toggle

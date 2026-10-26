@@ -1,9 +1,10 @@
 List of maintainers
 -------------------
 
-Exynos 990
-M: Giulia (@Android-Artisan)
-S: Maintained
-F: platform/exynos990/*
-F: target/c1s/*
-F: target/c2s/*
+Galaxy S10 lineup (Exynos 9820)
+S: Legacy source imported; integration/testing pending
+F: platform/exynos9820/*
+F: target/beyond0lte/*
+F: target/beyond1lte/*
+F: target/beyond2lte/*
+F: target/beyondx/*
