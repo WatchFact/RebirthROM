@@ -132,7 +132,14 @@ else
             # document roots rather than silently installing thermal data
             # the Android 16 donor's SSRM parser may not understand.
             S10_DONOR_SIOP="$APKTOOL_DIR/system/priv-app/SamsungDeviceHealthManagerService/SamsungDeviceHealthManagerService.apk/assets/$SOURCE_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml"
-            if python3 - "$S10_SDHMS_ASSET" "$S10_DONOR_SIOP" <<'PY'
+            # One UI releases can store their SIOP policy in res/raw rather
+            # than assets. The previous assets-only lookup falsely rejected
+            # the valid S10+ res/raw policy during compile run #12.
+            if [ ! -s "$S10_DONOR_SIOP" ]; then
+                S10_DONOR_SIOP="$APKTOOL_DIR/system/priv-app/SamsungDeviceHealthManagerService/SamsungDeviceHealthManagerService.apk/res/raw/$SOURCE_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml"
+            fi
+            if [ -s "$S10_DONOR_SIOP" ] &&
+                    python3 - "$S10_SDHMS_ASSET" "$S10_DONOR_SIOP" <<'PY'
 import sys
 import xml.etree.ElementTree as ET
 
