@@ -189,34 +189,10 @@ PY
                 LOGW "No exact donor SIOP policy found in decoded SDHMS assets or res/raw"
             fi
             LOGW "Decoded donor SIOP/DVFS candidate files:"
-            find "$APKTOOL_DIR/system/priv-app/SamsungDeviceHealthManagerService/SamsungDeviceHealthManagerService.apk/assets" \
-                 "$APKTOOL_DIR/system/priv-app/SamsungDeviceHealthManagerService/SamsungDeviceHealthManagerService.apk/res/raw" \
-                 -maxdepth 1 -type f 2>/dev/null |
-                grep -Ei '/(siop|ssrm|dvfs)[^/]*
-            if [ -f "$S10_SDHMS_APK" ]; then
-                LOGW "Target stock SDHMS APK: $S10_SDHMS_APK"
-                LOGW "Matching S10 and default stock SIOP/DVFS assets:"
-                unzip -Z1 "$S10_SDHMS_APK" 2>/dev/null |
-                    grep -Ei '(^|/)(siop|ssrm|dvfs|thermal)[^/]*$' |
-                    grep -Ei '(beyond|exynos9820|default|^assets/)' |
-                    head -100 || true
-            else
-                LOGW "Target stock SDHMS APK not found: $S10_SDHMS_APK"
-            fi
-            LOGW "Matching loose target-stock policy files:"
-            find "$FW_DIR/$S10_SDHMS_FW_PATH" -type f -print 2>/dev/null |
-                grep -Ei '/[^/]*(siop|ssrm|dvfs)[^/]*$' |
+            find "$S10_DONOR_BASE/assets" "$S10_DONOR_BASE/res/raw" \
+                -maxdepth 1 -type f 2>/dev/null |
+                grep -Ei '/(siop|ssrm|dvfs)[^/]*$' |
                 head -60 || true
-            _LOG "Missing or incompatible verified S10 SSRM policy: $TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml (do not substitute donor thermal data)"
-        fi
-        unset S10_SDHMS_ENTRY S10_SDHMS_CANDIDATE S10_SDHMS_VALID S10_DONOR_SIOP S10_DONOR_BASE S10_DONOR_CANDIDATE
-        unset S10_SDHMS_FW_PATH S10_SDHMS_APK S10_SDHMS_ASSET
-    fi
-fi
-
-unset -f _LOG
-unset DVFS_FEATURE_SMALI DVFS_PROPERTIES_SMALI SSRM_FEATURE_SMALI
- | head -60 || true
             rm -f "$S10_SDHMS_ASSET"
             if [ -f "$S10_SDHMS_APK" ]; then
                 LOGW "Target stock SDHMS APK: $S10_SDHMS_APK"
@@ -234,7 +210,7 @@ unset DVFS_FEATURE_SMALI DVFS_PROPERTIES_SMALI SSRM_FEATURE_SMALI
                 head -60 || true
             _LOG "Missing or incompatible verified S10 SSRM policy: $TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml (do not substitute donor thermal data)"
         fi
-        unset S10_SDHMS_ENTRY S10_SDHMS_CANDIDATE S10_SDHMS_VALID S10_DONOR_SIOP
+        unset S10_SDHMS_ENTRY S10_SDHMS_CANDIDATE S10_SDHMS_VALID S10_DONOR_SIOP S10_DONOR_BASE S10_DONOR_CANDIDATE
         unset S10_SDHMS_FW_PATH S10_SDHMS_APK S10_SDHMS_ASSET
     fi
 fi
