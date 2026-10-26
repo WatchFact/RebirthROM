@@ -107,7 +107,7 @@ for p in system vendor product odm; do
 done
 
 PACKAGER="$REPO/scripts/internal/build_legacy_flashable_zip.sh"
-bash "$PACKAGER"
+bash -x "$PACKAGER"
 ARCHIVE="$OUT_DIR/RebirthROM_EXPERIMENTAL_smoke_$TARGET.zip"
 test -s "$ARCHIVE"
 unzip -tqq "$ARCHIVE"
