@@ -72,6 +72,12 @@ elif [ ! -f "$SRC_DIR/unica/configs/$TARGET_OS_SINGLE_SYSTEM_IMAGE.sh" ]; then
     exit 1
 else
     source "$SRC_DIR/unica/configs/$TARGET_OS_SINGLE_SYSTEM_IMAGE.sh" || exit 1
+    # A modern Exynos2400 donor does not make its display/fingerprint stack
+    # native to Exynos9820. Keep the legacy adaptation code enabled.
+    if [[ "$TARGET_PLATFORM" == "exynos9820" ]]; then
+        SOURCE_USE_NATIVE_DISPLAY_STACK=false
+        SOURCE_USE_NATIVE_FINGERPRINT_UI=false
+    fi
 fi
 
 if [ -f "$OUT_DIR/config.sh" ]; then

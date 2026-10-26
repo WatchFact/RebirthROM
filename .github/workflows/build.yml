@@ -62,6 +62,9 @@ jobs:
           [[ "$TARGET_OS_BUILD_SYSTEM_EXT_PARTITION" == false ]]
           [[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == essi ]]
           [[ "$TARGET_BOARD_API_LEVEL" == 31 ]]
+          # Reject false "native donor stack" for Exynos9820.
+          [[ "$SOURCE_USE_NATIVE_DISPLAY_STACK" == false ]]
+          [[ "$SOURCE_USE_NATIVE_FINGERPRINT_UI" == false ]]
           echo "Generated modern target configuration for $TARGET_CODENAME"
       - name: Verify S10 target configurations and physical partition layout
         shell: bash

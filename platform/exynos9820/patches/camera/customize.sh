@@ -12,11 +12,9 @@ system/lib64/libDualCamBokehCapture.camera.samsung.so
 "
 for blob in $BLOBS_LIST
 do
-    DELETE_FROM_WORK_DIR "system" "$blob" &
+    DELETE_FROM_WORK_DIR "system" "$blob" || return 1
 done
 
-# shellcheck disable=SC2046
-wait $(jobs -p) || exit 1
 
 BLOBS_LIST="
 system/lib64/libPortraitDistortionCorrectionCali.arcsoft.so
@@ -30,11 +28,9 @@ system/lib64/vendor.samsung_slsi.hardware.MultiFrameProcessing20@1.0.so
 "
 for blob in $BLOBS_LIST
 do
-    ADD_TO_WORK_DIR "$TARGET_FIRMWARE" "system" "$blob" 0 0 644 "u:object_r:system_lib_file:s0" &
+    ADD_TO_WORK_DIR "$TARGET_FIRMWARE" "system" "$blob" 0 0 644 "u:object_r:system_lib_file:s0" || return 1
 done
 
-# shellcheck disable=SC2046
-wait $(jobs -p) || exit 1
 
 LOG_STEP_OUT
 
@@ -70,7 +66,7 @@ system/lib64/libSwIsp_wrapper_v1.camera.samsung.so
 "
 for blob in $BLOBS_LIST
 do
-    ADD_TO_WORK_DIR "r9sxxx" "system" "$blob" 0 0 644 "u:object_r:system_lib_file:s0" &
+    ADD_TO_WORK_DIR "r9sxxx" "system" "$blob" 0 0 644 "u:object_r:system_lib_file:s0" || return 1
 done
 LOG_STEP_OUT
 
@@ -114,11 +110,9 @@ system/cameradata/singletake/service-feature.xml
 "
 for blob in $BLOBS_LIST
 do
-    ADD_TO_WORK_DIR "r9sxxx" "system" "$blob" 0 0 644 "u:object_r:system_file:s0" &
+    ADD_TO_WORK_DIR "r9sxxx" "system" "$blob" 0 0 644 "u:object_r:system_file:s0" || return 1
 done
 
-# shellcheck disable=SC2046
-wait $(jobs -p) || exit 1
 
 LOG "- Decompiling SamsungCamera" # To fool build system into recompiling + signing it at the end
 DECODE_APK "system" "system/priv-app/SamsungCamera/SamsungCamera.apk"
