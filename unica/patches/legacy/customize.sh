@@ -119,6 +119,32 @@ PATCHED=false
 # - Add ro.surface_flinger.game_default_frame_rate_override if missing
 BACKPORT_SF_PROPS
 
+# APKTool may assign a class to a different smali_classesN directory between
+# donor APK builds. Resolve exact class paths before applying the original patch;
+# never skip or guess at a camera compatibility patch.
+APPLY_LEGACY_SCENE_PATCH()
+{
+    local APK="system/priv-app/SamsungCamera/SamsungCamera.apk"
+    local PATCH="$MODPATH/camera/SamsungCamera.apk/0001-Backport-legacy-Scene-detection-code.patch"
+    local REMAPPED
+
+    DECODE_APK "system" "$APK" || return 1
+    REMAPPED="$(mktemp "${TMPDIR:-/tmp}/rebirthrom-scene-XXXXXXXX.patch")" || return 1
+    if ! python3 "$SRC_DIR/scripts/remap_smali_patch.py" \
+            "$APKTOOL_DIR/system/priv-app/SamsungCamera/SamsungCamera.apk" \
+            "$PATCH" "$REMAPPED"; then
+        rm -f "$REMAPPED"
+        ABORT "Legacy scene-detection patch requires a compatible decoded SamsungCamera APK"
+        return 1
+    fi
+    if APPLY_PATCH "system" "$APK" "$REMAPPED"; then
+        rm -f "$REMAPPED"
+        return 0
+    fi
+    rm -f "$REMAPPED"
+    return 1
+}
+
 # Support legacy Camera HAL (pre-API 34)
 # - Some legacy devices (e.g. r8q) expect GPS tags to be non-null
 # - Support legacy Scene detection camera feature
@@ -130,8 +156,7 @@ if [ "$TARGET_PLATFORM_SDK_VERSION" -lt "34" ]; then
         APPLY_PATCH "system" "system/priv-app/SamsungCamera/SamsungCamera.apk" \
             "$MODPATH/camera_mass/SamsungCamera.apk/0001-Backport-legacy-Scene-detection-code.patch"
     else
-        APPLY_PATCH "system" "system/priv-app/SamsungCamera/SamsungCamera.apk" \
-            "$MODPATH/camera/SamsungCamera.apk/0001-Backport-legacy-Scene-detection-code.patch"
+        APPLY_LEGACY_SCENE_PATCH
     fi
 fi
 
