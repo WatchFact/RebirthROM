@@ -136,6 +136,46 @@ else
             # Do not substitute a different model's thermal policy.
             S10_DONOR_SIOP=""
             S10_DONOR_BASE="$APKTOOL_DIR/system/priv-app/SamsungDeviceHealthManagerService/SamsungDeviceHealthManagerService.apk"
+            # The Android 16 SDHMS has an encrypted asset mode, selected by
+            # assets/ssrm_default, and a separate plaintext XML mode. Its
+            # plaintext parser loads siop_default.xml and <policy>.xml.
+            # Only switch modes if the actual decoded parser exposes that
+            # path and the genuine stock policy has the expected structure.
+            S10_DONOR_PARSER="$S10_DONOR_BASE/smali/com/sec/android/sdhms/settings/k.smali"
+            if [ -s "$S10_DONOR_PARSER" ] &&
+                    grep -Fq 'const-string p0, "ssrm_default"' "$S10_DONOR_PARSER" &&
+                    grep -Fq 'const-string v0, "siop_default.xml"' "$S10_DONOR_PARSER" &&
+                    grep -Fq 'const-string p1, "siop_model"' "$S10_DONOR_PARSER" &&
+                    grep -Fq 'const-string v0, ".xml"' "$S10_DONOR_PARSER" &&
+                    grep -Fq 'AssetManager;->open' "$S10_DONOR_PARSER" &&
+                    python3 - "$S10_SDHMS_ASSET" "$MODPATH/assets/siop_default.xml" "$MODPATH/assets/ssrm_default.xml" <<'PY'
+import sys
+import xml.etree.ElementTree as ET
+try:
+    target, default, ssrm = [ET.parse(p).getroot() for p in sys.argv[1:]]
+except (ET.ParseError, OSError) as exc:
+    print(f"S10 plaintext policy validation failed: {exc}", file=sys.stderr)
+    sys.exit(1)
+if any(root.tag != "siop_document" for root in (target, default, ssrm)):
+    sys.exit("S10 and bundled default policies have incompatible roots")
+if not all(root.find("modelsettings") is not None and
+           root.find("components") is not None and
+           root.find("scenarios") is not None for root in (target, default, ssrm)):
+    sys.exit("S10 or bundled policy is missing required sections")
+if not target.findall("./components/component") or not target.findall("./scenarios/scenario"):
+    sys.exit("S10 policy lacks component or scenario entries")
+PY
+            then
+                # Absence of this exact filename selects plaintext parsing
+                # in the inspected SDHMS parser. Never alter thermal values.
+                rm -f "$S10_DONOR_BASE/assets/ssrm_default" \
+                    "$S10_DONOR_BASE/assets/siop_default" \
+                    "$S10_DONOR_BASE/assets/siop_model"
+                cp -a "$MODPATH/assets/siop_default.xml" "$S10_DONOR_BASE/assets/siop_default.xml"
+                cp -a "$MODPATH/assets/ssrm_default.xml" "$S10_DONOR_BASE/assets/ssrm_default.xml"
+                S10_SDHMS_VALID=true
+                LOG "- Selected donor's inspected plaintext SIOP parser for exact stock S10 XML (runtime still unverified)"
+            fi
             for S10_DONOR_CANDIDATE in \
                     "$S10_DONOR_BASE/assets/$SOURCE_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml" \
                     "$S10_DONOR_BASE/res/raw/$SOURCE_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml" \
