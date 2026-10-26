@@ -142,13 +142,19 @@ else
             # Only switch modes if the actual decoded parser exposes that
             # path and the genuine stock policy has the expected structure.
             S10_DONOR_PARSER="$S10_DONOR_BASE/smali/com/sec/android/sdhms/settings/k.smali"
-            if [ -s "$S10_DONOR_PARSER" ] &&
+            S10_STOCK_SIOP_DEFAULT="$S10_DONOR_BASE/assets/.s10-stock-siop-default.xml"
+            S10_STOCK_SSRM_DEFAULT="$S10_DONOR_BASE/assets/.s10-stock-ssrm-default.xml"
+            if unzip -p "$S10_SDHMS_APK" "res/raw/siop_default.xml" > "$S10_STOCK_SIOP_DEFAULT" &&
+                    unzip -p "$S10_SDHMS_APK" "res/raw/ssrm_default.xml" > "$S10_STOCK_SSRM_DEFAULT" &&
+                    [ -s "$S10_STOCK_SIOP_DEFAULT" ] &&
+                    [ -s "$S10_STOCK_SSRM_DEFAULT" ] &&
+                    [ -s "$S10_DONOR_PARSER" ] &&
                     grep -Fq 'const-string p0, "ssrm_default"' "$S10_DONOR_PARSER" &&
                     grep -Fq 'const-string v0, "siop_default.xml"' "$S10_DONOR_PARSER" &&
                     grep -Fq 'const-string p1, "siop_model"' "$S10_DONOR_PARSER" &&
                     grep -Fq 'const-string v0, ".xml"' "$S10_DONOR_PARSER" &&
                     grep -Fq 'AssetManager;->open' "$S10_DONOR_PARSER" &&
-                    python3 - "$S10_SDHMS_ASSET" "$MODPATH/assets/siop_default.xml" "$MODPATH/assets/ssrm_default.xml" <<'PY'
+                    python3 - "$S10_SDHMS_ASSET" "$S10_STOCK_SIOP_DEFAULT" "$S10_STOCK_SSRM_DEFAULT" <<'PY'
 import sys
 import xml.etree.ElementTree as ET
 try:
@@ -171,11 +177,12 @@ PY
                 rm -f "$S10_DONOR_BASE/assets/ssrm_default" \
                     "$S10_DONOR_BASE/assets/siop_default" \
                     "$S10_DONOR_BASE/assets/siop_model"
-                cp -a "$MODPATH/assets/siop_default.xml" "$S10_DONOR_BASE/assets/siop_default.xml"
-                cp -a "$MODPATH/assets/ssrm_default.xml" "$S10_DONOR_BASE/assets/ssrm_default.xml"
+                mv -f "$S10_STOCK_SIOP_DEFAULT" "$S10_DONOR_BASE/assets/siop_default.xml"
+                mv -f "$S10_STOCK_SSRM_DEFAULT" "$S10_DONOR_BASE/assets/ssrm_default.xml"
                 S10_SDHMS_VALID=true
-                LOG "- Selected donor's inspected plaintext SIOP parser for exact stock S10 XML (runtime still unverified)"
+                LOG "- Selected donor's inspected plaintext SIOP parser with stock S10 model and default XML (runtime still unverified)"
             fi
+            rm -f "$S10_STOCK_SIOP_DEFAULT" "$S10_STOCK_SSRM_DEFAULT"
             for S10_DONOR_CANDIDATE in \
                     "$S10_DONOR_BASE/assets/$SOURCE_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml" \
                     "$S10_DONOR_BASE/res/raw/$SOURCE_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml" \
