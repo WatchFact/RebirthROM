@@ -1,0 +1,7 @@
+# Disabled for Exynos9820 Android 16 migration.
+# Compile run #8 (2026-10-26) confirmed that the inherited Extra Dim
+# SystemUI patch targets a missing smali_classes2/ReduceBrightColorsTile.smali.
+# This optional visual feature must not block the ROM source build or force
+# unsupported changes to SystemUI / SecSettings on the new firmware donor.
+# Re-enable only after inspecting the actual donor DEX classes and updating
+# both patch hunks against verified matching smali and runtime behavior.
