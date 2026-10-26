@@ -39,6 +39,7 @@ def main() -> int:
         except (UnicodeError, ValueError, SyntaxError, ET.ParseError,
                 subprocess.CalledProcessError) as exc:
             message = str(exc).replace("\n", " ")
+            print(f"SYNTAX ERROR in {path}: {type(exc).__name__}: {message}", flush=True)
             print(f"::error file={path}::{type(exc).__name__}: {message}")
             errors.append(path)
 
