@@ -109,11 +109,34 @@ else
         S10_SDHMS_ASSET="$APKTOOL_DIR/system/priv-app/SamsungDeviceHealthManagerService/SamsungDeviceHealthManagerService.apk/assets/$TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml"
         mkdir -p "$(dirname "$S10_SDHMS_ASSET")"
         if [ -f "$S10_SDHMS_APK" ] &&
-                unzip -p "$S10_SDHMS_APK" "assets/$TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml" > "$S10_SDHMS_ASSET"; then
+                unzip -p "$S10_SDHMS_APK" "assets/$TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml" > "$S10_SDHMS_ASSET" &&
+                [ -s "$S10_SDHMS_ASSET" ]; then
             LOG "- Imported stock $TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml from target firmware"
         else
             rm -f "$S10_SDHMS_ASSET"
-            _LOG "Missing S10 SSRM policy in target stock firmware: $TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml"
+            # The Android 12 S10 APK may store policies under different asset
+            # names/formats. Report what is actually present rather than
+            # inventing a policy or silently using the S24 thermal tables.
+            if [ -f "$S10_SDHMS_APK" ]; then
+                LOGW "Target stock SDHMS APK: $S10_SDHMS_APK"
+                LOGW "Available stock thermal/DVFS assets:"
+                unzip -Z1 "$S10_SDHMS_APK" 2>/dev/null |
+                    grep -Ei '(^|/)(siop|ssrm|dvfs|thermal)[^/]*
+        unset S10_SDHMS_FW_PATH S10_SDHMS_APK S10_SDHMS_ASSET
+    fi
+fi
+
+unset -f _LOG
+unset DVFS_FEATURE_SMALI DVFS_PROPERTIES_SMALI SSRM_FEATURE_SMALI
+ |
+                    head -60 || true
+            else
+                LOGW "Target stock SDHMS APK not found: $S10_SDHMS_APK"
+            fi
+            LOGW "Matching loose target-stock policy files:"
+            find "$FW_DIR/$S10_SDHMS_FW_PATH" -type f \\( -iname '*siop*' -o -iname '*ssrm*' -o -iname '*dvfs*' \\) -print 2>/dev/null |
+                head -60 || true
+            _LOG "Missing verified S10 SSRM policy: $TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml (do not substitute donor thermal data)"
         fi
         unset S10_SDHMS_FW_PATH S10_SDHMS_APK S10_SDHMS_ASSET
     fi
