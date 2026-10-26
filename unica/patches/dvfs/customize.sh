@@ -114,27 +114,20 @@ else
             LOG "- Imported stock $TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml from target firmware"
         else
             rm -f "$S10_SDHMS_ASSET"
-            # The Android 12 S10 APK may store policies under different asset
-            # names/formats. Report what is actually present rather than
-            # inventing a policy or silently using the S24 thermal tables.
+            # Android 12 stock APK policy names/formats may differ from donor.
+            # Log real evidence instead of substituting an S24 thermal table.
             if [ -f "$S10_SDHMS_APK" ]; then
                 LOGW "Target stock SDHMS APK: $S10_SDHMS_APK"
                 LOGW "Available stock thermal/DVFS assets:"
                 unzip -Z1 "$S10_SDHMS_APK" 2>/dev/null |
-                    grep -Ei '(^|/)(siop|ssrm|dvfs|thermal)[^/]*
-        unset S10_SDHMS_FW_PATH S10_SDHMS_APK S10_SDHMS_ASSET
-    fi
-fi
-
-unset -f _LOG
-unset DVFS_FEATURE_SMALI DVFS_PROPERTIES_SMALI SSRM_FEATURE_SMALI
- |
+                    grep -Ei '(^|/)(siop|ssrm|dvfs|thermal)[^/]*$' |
                     head -60 || true
             else
                 LOGW "Target stock SDHMS APK not found: $S10_SDHMS_APK"
             fi
             LOGW "Matching loose target-stock policy files:"
-            find "$FW_DIR/$S10_SDHMS_FW_PATH" -type f \\( -iname '*siop*' -o -iname '*ssrm*' -o -iname '*dvfs*' \\) -print 2>/dev/null |
+            find "$FW_DIR/$S10_SDHMS_FW_PATH" -type f -print 2>/dev/null |
+                grep -Ei '/[^/]*(siop|ssrm|dvfs)[^/]*$' |
                 head -60 || true
             _LOG "Missing verified S10 SSRM policy: $TARGET_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME.xml (do not substitute donor thermal data)"
         fi
