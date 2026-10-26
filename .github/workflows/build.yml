@@ -70,6 +70,16 @@ jobs:
           expected=(beyond0lte beyond1lte beyond2lte beyondx)
           mapfile -t actual < <(find target -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
           [[ "${actual[*]}" == "${expected[*]}" ]]
+          # Validate the full Git tree, including paths excluded by sparse checkout.
+          # Do not allow accidental reintroduction of old Note20/S20 device data.
+          for legacy in target/c1s target/c2s target/x1s target/y2s target/z3s platform/exynos990 \
+              prebuilts/samsung/c1sxxx prebuilts/samsung/c2sxxx \
+              prebuilts/samsung/x1sxxx prebuilts/samsung/y2sxxx prebuilts/samsung/z3sxxx; do
+            if [[ -n "$(git ls-tree --name-only HEAD "$legacy")" ]]; then
+              echo "::error::Unexpected legacy device asset: $legacy"
+              exit 1
+            fi
+          done
           test ! -d platform/exynos990
           test -f platform/exynos9820/installer/recovery.fstab
           test -f platform/exynos9820/patches/extremekrnl/disable

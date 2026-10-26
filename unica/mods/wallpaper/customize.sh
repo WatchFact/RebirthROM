@@ -5,12 +5,9 @@
 # shellcheck disable=SC2034
 SKIPUNZIP=1
 
-# Every Exynos 990 target ships its own wallpaper-res.apk inside the matching
-# prebuilt (x1s -> x1sxxx, c2s -> c2sxxx, ...). Pull the one that belongs to the
-# device being built so the bundled wallpapers match its panel.
-#
-# The c1s/c2s prebuilts store the APK split into .00/.01/.02 parts; passing the
-# file path lets ADD_TO_WORK_DIR stitch them back together.
+# Only use a wallpaper-res donor that matches the device being built.
+# The legacy S10 trees currently have no beyond*xxx prebuilt; skip safely.
+# Never pull S20/Note20 wallpapers or reuse another device's panel assets.
 
 WALLPAPER_DONOR="${TARGET_CODENAME}xxx"
 
