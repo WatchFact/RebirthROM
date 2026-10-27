@@ -219,30 +219,29 @@ else
     rm -rf "$APK_DECODE_CACHE_DIR"
 fi
 
-# Every make_rom invocation starts from a pristine filesystem tree, regardless
-# of the selected options. APK/JAR caches are stored outside WORK_DIR and remain
-# available when -c/--use-apk-cache is used.
-if [ -d "$WORK_DIR" ]; then
-    LOG "- Cleaning previous work dir"
-    rm -rf "${WORK_DIR:?}"
+# A completed work tree can be reused only when the caller explicitly opts
+# into caching, its source hash still matches, both firmware extractions exist,
+# and the expected compiled output files are present. A stale or incomplete
+# tree must be removed before create_work_dir.sh rebuilds it.
+BUILD_ROM=true
+if ! $FORCE && $USE_APK_CACHE && \
+        [ -f "$WORK_DIR/.completed" ] && \
+        [ -f "$FW_DIR/$SOURCE_FIRMWARE_PATH/.extracted" ] && \
+        [ -f "$FW_DIR/$TARGET_FIRMWARE_PATH/.extracted" ] && \
+        [ -s "$WORK_DIR/system/system/build.prop" ] && \
+        [ -s "$WORK_DIR/vendor/build.prop" ]; then
+    CURRENT_WORK_DIR_HASH="$(GET_WORK_DIR_HASH)" || exit 1
+    if [[ "$(cat "$WORK_DIR/.completed")" == "$CURRENT_WORK_DIR_HASH" ]]; then
+        LOGW "No changes have been detected in the build environment"
+        BUILD_ROM=false
+    else
+        LOGW "Changes detected in the build environment"
+    fi
 fi
 
-if $FORCE || ! $USE_APK_CACHE; then
-    # A regular invocation intentionally performs a clean ROM rebuild and
-    # refreshes the APK/JAR cache. Cache reuse is opt-in with -c.
-    BUILD_ROM=true
-else
-    if [ -f "$WORK_DIR/.completed" ]; then
-        if [[ "$(cat "$WORK_DIR/.completed")" == "$(GET_WORK_DIR_HASH)" ]]; then
-            LOGW "No changes have been detected in the build environment"
-            BUILD_ROM=false
-        else
-            LOGW "Changes detected in the build environment"
-            BUILD_ROM=true
-        fi
-    else
-        BUILD_ROM=true
-    fi
+if $BUILD_ROM && [ -d "$WORK_DIR" ]; then
+    LOG "- Cleaning previous work dir"
+    rm -rf "${WORK_DIR:?}" || exit 1
 fi
 
 trap 'PRINT_BUILD_OUTCOME' EXIT
