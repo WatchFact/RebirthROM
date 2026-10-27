@@ -514,6 +514,38 @@ if [ "$TARGET_PLATFORM_SDK_VERSION" -lt "35" ]; then
     fi
 fi
 
+# Resolve optional donor EncoderFilter classes instead of assuming a fixed
+# classes3 DEX index. A missing class has no method to patch; ambiguous classes
+# or a present class with incompatible bytecode must fail closed.
+PATCH_S10_OMX_ENCODER()
+{
+    local APK="$1"
+    local REGISTER="$2"
+    local ROOT="$APKTOOL_DIR/system/${APK//system\//}"
+    local CLASS="com/samsung/android/sum/core/filter/EncoderFilter.smali"
+    local DIR
+    local MATCHES=()
+
+    DECODE_APK "system" "$APK" || return 1
+    for DIR in "$ROOT"/smali "$ROOT"/smali_classes*; do
+        if [ -f "$DIR/$CLASS" ]; then
+            MATCHES+=("${DIR#"$ROOT/"}")
+        fi
+    done
+    if [ "${#MATCHES[@]}" -eq 0 ]; then
+        LOG "- No EncoderFilter class in $APK; OMX patch not applicable"
+        return 0
+    fi
+    if [ "${#MATCHES[@]}" -ne 1 ]; then
+        ABORT "Ambiguous EncoderFilter classes in $APK"
+        return 1
+    fi
+    SMALI_PATCH "system" "$APK" "${MATCHES[0]}/$CLASS" "replace" \
+        'configCodec(Lcom/samsung/android/sum/core/message/Message;)V' \
+        "const $REGISTER, 0x7f420888" \
+        "const $REGISTER, 0x7f000789"
+}
+
 # Support OMX hardware video codecs (pre-API 35)
 # https://android.googlesource.com/platform/frameworks/av/+/android-16.0.0_r2/media/libstagefright/omx/OMXNodeInstance.cpp#1687
 if [ "$TARGET_PLATFORM_SDK_VERSION" -lt "35" ]; then
@@ -531,22 +563,31 @@ if [ "$TARGET_PLATFORM_SDK_VERSION" -lt "35" ]; then
             'const v4, 0x7f420888' \
             'const v4, 0x7f000789'
         if [ -f "$WORK_DIR/system/system/priv-app/GlobalPostProcMgr/GlobalPostProcMgr.apk" ]; then
-            SMALI_PATCH "system" "system/priv-app/GlobalPostProcMgr/GlobalPostProcMgr.apk" \
+            if [[ "$TARGET_PLATFORM" == "exynos9820" ]]; then
+                PATCH_S10_OMX_ENCODER "system/priv-app/GlobalPostProcMgr/GlobalPostProcMgr.apk" "v3" || return 1
+            else
+                SMALI_PATCH "system" "system/priv-app/GlobalPostProcMgr/GlobalPostProcMgr.apk" \
+                    "smali/com/samsung/android/sum/core/filter/EncoderFilter.smali" "replace" \
+                    'configCodec(Lcom/samsung/android/sum/core/message/Message;)V' \
+                    'const v3, 0x7f420888' \
+                    'const v3, 0x7f000789'
+            fi
+        fi
+        if [[ "$TARGET_PLATFORM" == "exynos9820" ]]; then
+            PATCH_S10_OMX_ENCODER "system/priv-app/SamsungCamera/SamsungCamera.apk" "v4" || return 1
+            PATCH_S10_OMX_ENCODER "system/priv-app/vexfwk_service/vexfwk_service.apk" "v2" || return 1
+        else
+            SMALI_PATCH "system" "system/priv-app/SamsungCamera/SamsungCamera.apk" \
+                "smali_classes3/com/samsung/android/sum/core/filter/EncoderFilter.smali" "replace" \
+                'configCodec(Lcom/samsung/android/sum/core/message/Message;)V' \
+                'const v4, 0x7f420888' \
+                'const v4, 0x7f000789'
+            SMALI_PATCH "system" "system/priv-app/vexfwk_service/vexfwk_service.apk" \
                 "smali/com/samsung/android/sum/core/filter/EncoderFilter.smali" "replace" \
                 'configCodec(Lcom/samsung/android/sum/core/message/Message;)V' \
-                'const v3, 0x7f420888' \
-                'const v3, 0x7f000789'
+                'const v2, 0x7f420888' \
+                'const v2, 0x7f000789'
         fi
-        SMALI_PATCH "system" "system/priv-app/SamsungCamera/SamsungCamera.apk" \
-            "smali_classes3/com/samsung/android/sum/core/filter/EncoderFilter.smali" "replace" \
-            'configCodec(Lcom/samsung/android/sum/core/message/Message;)V' \
-            'const v4, 0x7f420888' \
-            'const v4, 0x7f000789'
-        SMALI_PATCH "system" "system/priv-app/vexfwk_service/vexfwk_service.apk" \
-            "smali/com/samsung/android/sum/core/filter/EncoderFilter.smali" "replace" \
-            'configCodec(Lcom/samsung/android/sum/core/message/Message;)V' \
-            'const v2, 0x7f420888' \
-            'const v2, 0x7f000789'
     fi
 fi
 
