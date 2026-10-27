@@ -174,20 +174,44 @@ fi
 if [ "$TARGET_PLATFORM_SDK_VERSION" -lt "34" ]; then
     if [ ! -f "$WORK_DIR/vendor/bin/hw/vendor.samsung.hardware.biometrics.face@3.0-service" ]; then
         PATCHED=true
-        APPLY_PATCH "system" "system/framework/services.jar" \
-            "$MODPATH/face/services.jar/0001-Fallback-to-Face-HIDL-2.0.patch"
-        SMALI_PATCH "system" "system/framework/services.jar" \
-            "smali/com/android/server/biometrics/sensors/face/hidl/HidlToAidlCallbackConverter.smali" "replaceall" \
-            "V3_0" \
-            "V2_0" \
-            > /dev/null
-        SMALI_PATCH "system" "system/framework/services.jar" \
-            "smali/com/android/server/biometrics/sensors/face/hidl/TestHal.smali" "replaceall" \
-            "V3_0" \
-            "V2_0" \
-            > /dev/null
-        SMALI_PATCH "system" "system/framework/services.jar" \
-            "smali/com/android/server/biometrics/sensors/face/aidl/SemFaceServiceExImpl\$\$ExternalSyntheticLambda6.smali" "remove"
+        if [[ "$TARGET_PLATFORM" == "exynos9820" ]]; then
+            # Android 16 donor has different face bytecode and a live Lambda6
+            # removal callback. Preserve it instead of applying old Lambda5.
+            DECODE_APK "system" "system/framework/services.jar" || return 1
+            S10_FACE_PATCH="$(mktemp "${TMPDIR:-/tmp}/rebirthrom-face-XXXXXXXX.patch")" || return 1
+            if ! python3 "$SRC_DIR/scripts/backport_s10_face_hidl.py" filter \
+                    "$MODPATH/face/services.jar/0001-Fallback-to-Face-HIDL-2.0.patch" "$S10_FACE_PATCH"; then
+                rm -f "$S10_FACE_PATCH"
+                ABORT "S10 face HIDL patch filter is incompatible with this source"
+                return 1
+            fi
+            if ! APPLY_PATCH "system" "system/framework/services.jar" "$S10_FACE_PATCH"; then
+                rm -f "$S10_FACE_PATCH"
+                ABORT "S10 face HIDL shared compatibility hunks do not apply"
+                return 1
+            fi
+            rm -f "$S10_FACE_PATCH"
+            if ! python3 "$SRC_DIR/scripts/backport_s10_face_hidl.py" adapt \
+                    "$APKTOOL_DIR/system/framework/services.jar"; then
+                ABORT "S10 Face HIDL 2.0 adaptation does not match Android 16 donor"
+                return 1
+            fi
+        else
+            APPLY_PATCH "system" "system/framework/services.jar" \
+                "$MODPATH/face/services.jar/0001-Fallback-to-Face-HIDL-2.0.patch"
+            SMALI_PATCH "system" "system/framework/services.jar" \
+                "smali/com/android/server/biometrics/sensors/face/hidl/HidlToAidlCallbackConverter.smali" "replaceall" \
+                "V3_0" \
+                "V2_0" \
+                > /dev/null
+            SMALI_PATCH "system" "system/framework/services.jar" \
+                "smali/com/android/server/biometrics/sensors/face/hidl/TestHal.smali" "replaceall" \
+                "V3_0" \
+                "V2_0" \
+                > /dev/null
+            SMALI_PATCH "system" "system/framework/services.jar" \
+                "smali/com/android/server/biometrics/sensors/face/aidl/SemFaceServiceExImpl\$\$ExternalSyntheticLambda6.smali" "remove"
+        fi
         LOG "- Removing \"smali_classes2/vendor/samsung/hardware/biometrics/face/V3_0/ISehBiometricsFace.smali\" from /system/system/framework/services.jar"
         EVAL "rm \"$APKTOOL_DIR/system/framework/services.jar/smali_classes2/vendor/samsung/hardware/biometrics/face/V3_0/ISehBiometricsFace.smali\""
         LOG "- Removing \"smali_classes2/vendor/samsung/hardware/biometrics/face/V3_0/ISehBiometricsFace\$Proxy.smali\" from /system/system/framework/services.jar"
