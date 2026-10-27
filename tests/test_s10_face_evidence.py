@@ -77,7 +77,7 @@ class FaceEvidenceTests(unittest.TestCase):
         patch = ("diff --git a/smali/" + rel + " b/smali/" + rel + "\\n")
         report = COLLECTOR.capture(self.root, patch)
         self.assertIn("Complete method evidence at 2:", report)
-        self.assertIn("354: .end method", report)
+        self.assertIn("355: .end method", report)
         self.assertEqual(path.read_text(), method)
 
     def test_rejects_oversized_full_method_without_unbounded_dump(self):
