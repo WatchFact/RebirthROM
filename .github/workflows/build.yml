@@ -19,6 +19,7 @@ jobs:
             target
             platform/exynos9820
             unica/configs
+            unica/patches/legacy
             .github/workflows
       - name: Parse every tracked shell script, even sparse-excluded modules
         shell: bash
