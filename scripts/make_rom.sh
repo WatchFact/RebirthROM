@@ -139,15 +139,43 @@ BUILD_APKS()
 
 GET_WORK_DIR_HASH()
 {
-    if [ "${TARGET_PLATFORM//none/}" ] && [ -d "$SRC_DIR/platform/$TARGET_PLATFORM" ]; then
-        find -H "$SRC_DIR/scripts" "$SRC_DIR/unica" "$SRC_DIR/platform/$TARGET_PLATFORM" \
-            "$SRC_DIR/target/$TARGET_CODENAME" -type f -print0 | \
-            sort -z | xargs -0 sha1sum | sha1sum | cut -d " " -f 1
-    else
-        find -H "$SRC_DIR/scripts" "$SRC_DIR/unica" "$SRC_DIR/target/$TARGET_CODENAME" \
-            -type f -print0 | \
-            sort -z | xargs -0 sha1sum | sha1sum | cut -d " " -f 1
+    # A reusable work directory depends on more than shell modules. Samsung
+    # prebuilts, AVB/signing assets, and build configuration can change without
+    # touching scripts/unica/platform/target. Hash their actual bytes and paths.
+    local INPUTS=(
+        "$SRC_DIR/scripts"
+        "$SRC_DIR/unica"
+        "$SRC_DIR/target/$TARGET_CODENAME"
+        "$SRC_DIR/prebuilts"
+        "$SRC_DIR/security"
+        "$SRC_DIR/buildenv.sh"
+        "$SRC_DIR/.gitmodules"
+    )
+    local ITEM
+    local INPUT_HASH
+
+    if [[ "$TARGET_PLATFORM" != "none" ]]; then
+        INPUTS+=("$SRC_DIR/platform/$TARGET_PLATFORM")
     fi
+    for ITEM in "${INPUTS[@]}"; do
+        if [ ! -e "$ITEM" ]; then
+            LOGE "Cannot reuse work directory: missing source input $ITEM"
+            return 1
+        fi
+    done
+
+    INPUT_HASH="$(
+        set -o pipefail
+        find -H "${INPUTS[@]}" -type f -print0 |
+            LC_ALL=C sort -z |
+            xargs -0 -r sha256sum |
+            sha256sum | cut -d " " -f 1
+    )" || return 1
+
+    # Distinguish firmware/model selections even if all tracked files match.
+    printf '%s\n' "$INPUT_HASH" "${SOURCE_FIRMWARE:-}" "${TARGET_FIRMWARE:-}" \
+        "$TARGET_CODENAME" "$TARGET_PLATFORM" |
+        sha256sum | cut -d " " -f 1
 }
 
 PREPARE_SCRIPT()

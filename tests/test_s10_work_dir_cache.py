@@ -36,7 +36,7 @@ class WorkDirectoryCacheTests(unittest.TestCase):
                        SOURCE_FIRMWARE_PATH="source", TARGET_FIRMWARE_PATH="target",
                        FORCE=str(force).lower(), USE_APK_CACHE=str(cache).lower())
             command = ("set -euo pipefail\n"
-                       "GET_WORK_DIR_HASH() { printf 'same\\n'; }\n"
+                       "GET_WORK_DIR_HASH() { printf 'same\n'; }\n"
                        "LOG() { :; }\nLOGW() { :; }\n"
                        + SNIPPET + "\nprintf '%s' \"$BUILD_ROM\"\n")
             result = subprocess.run(["bash", "-c", command], env=env,
@@ -56,6 +56,51 @@ class WorkDirectoryCacheTests(unittest.TestCase):
                        {"extracted": False}):
             with self.subTest(kwargs=kwargs):
                 self.assertEqual(self.run_case(**kwargs), ("true", False))
+
+    def test_work_hash_covers_prebuilts_security_config_and_firmware(self):
+        hash_source = SOURCE.split("GET_WORK_DIR_HASH()\n{\n", 1)[1].split(
+            "\n}\n\nPREPARE_SCRIPT()", 1)[0]
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for directory in ("scripts", "unica", "target/beyond2lte",
+                              "platform/exynos9820", "prebuilts/samsung",
+                              "security/avb"):
+                (root / directory).mkdir(parents=True)
+            for name in ("scripts/a.sh", "unica/module.sh",
+                         "target/beyond2lte/config.sh", "platform/exynos9820/config.sh",
+                         "prebuilts/samsung/blob.so", "security/avb/key.pem",
+                         "buildenv.sh", ".gitmodules"):
+                (root / name).write_text("original\n")
+            env = dict(os.environ, SRC_DIR=str(root),
+                       TARGET_CODENAME="beyond2lte", TARGET_PLATFORM="exynos9820",
+                       SOURCE_FIRMWARE="SM-S926B/EUX", TARGET_FIRMWARE="SM-G975F/AUT")
+            command = ("set -euo pipefail\nLOGE() { :; }\nGET_WORK_DIR_HASH() {\n"
+                       + hash_source + "\n}\nGET_WORK_DIR_HASH\n")
+
+            def digest():
+                return subprocess.run(["bash", "-c", command], env=env,
+                                      capture_output=True, text=True,
+                                      check=True).stdout.strip()
+
+            initial = digest()
+            self.assertEqual(len(initial), 64)
+            for name in ("prebuilts/samsung/blob.so", "security/avb/key.pem",
+                         "buildenv.sh", ".gitmodules"):
+                path = root / name
+                path.write_text("changed\n")
+                self.assertNotEqual(initial, digest(), name)
+                path.write_text("original\n")
+                self.assertEqual(initial, digest(), name)
+            env["TARGET_FIRMWARE"] = "SM-G975F/BTU"
+            self.assertNotEqual(initial, digest())
+
+            env["TARGET_FIRMWARE"] = "SM-G975F/AUT"
+            (root / "security/avb/key.pem").unlink()
+            self.assertNotEqual(initial, digest())
+            (root / "security").rename(root / "security-missing")
+            result = subprocess.run(["bash", "-c", command], env=env,
+                                    capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
 
 
 if __name__ == "__main__":
