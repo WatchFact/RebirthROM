@@ -18,9 +18,17 @@ KEYWORDS = (
 )
 MAX_FULL_CLASS_LINES = 1800
 MAX_METHOD_LINES = 1700
-MAX_METHODS = 9
-MAX_CLASS_OUTPUT_LINES = 5200
-MAX_TOTAL_LINES = 25000
+MAX_METHODS = 18
+MAX_CLASS_OUTPUT_LINES = 9500
+MAX_TOTAL_LINES = 50000
+# These classes are removed by the legacy patch but are not listed in its
+# diff. Capture their real donor definitions before considering a rebase.
+EXTRA_CLASSES = (
+    'smali_classes2/com/android/server/vibrator/VirtualVibSoundHelper.smali',
+    'smali_classes2/com/android/server/vibrator/VibratorManagerInternal.smali',
+    'smali_classes2/com/android/server/vibrator/VibratorManagerService$SamsungBroadcastReceiver$ExternalSyntheticLambda1.smali',
+    'smali/com/android/server/audio/BtHelper$ExternalSyntheticLambda0.smali',
+)
 
 
 def patch_classes(patch: str) -> list[str]:
@@ -62,7 +70,7 @@ def capture(decoded: Path, patch: str) -> str:
         'S10 Android 16 virtual-vibration compatibility patch: decoded donor evidence',
         'Read-only; no bytecode has been patched, skipped, or substituted.',
     ]
-    for rel in patch_classes(patch):
+    for rel in dict.fromkeys((*patch_classes(patch), *EXTRA_CLASSES)):
         tail = rel.split('/', 1)[1]
         matches = sorted(p for p in decoded.glob('smali*/' + tail) if p.is_file())
         section = [f'\n## {rel}', f'Donor class matches: {len(matches)}']
