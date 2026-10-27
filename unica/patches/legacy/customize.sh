@@ -473,13 +473,20 @@ fi
 # fails before the APK can be rebuilt).  Keep the stock camera path for this
 # platform until the feature is ported against the new capability model.
 if [ "$TARGET_PLATFORM_SDK_VERSION" -lt "35" ]; then
-    PATCHED=true
-    if $TARGET_CAMERA_SUPPORT_MASS_APP_FLAVOR; then
-        APPLY_PATCH "system" "system/priv-app/SamsungCamera/SamsungCamera.apk" \
-            "$MODPATH/camera_mass/SamsungCamera.apk/0001-Backport-CONTROL_AVAILABLE_FEATURE_SECOND_PICTURE_CO.patch"
+    if [[ "$TARGET_PLATFORM" == "exynos9820" ]] && ! $TARGET_CAMERA_SUPPORT_MASS_APP_FLAVOR; then
+        # The Android 16 SamsungCamera capability model is map-backed, while
+        # this old patch targets fields. Do not corrupt the stock camera APK.
+        # A donor-specific backport is required before enabling this feature.
+        LOG "- Retaining stock SECOND_PICTURE_CONFIG on Exynos9820 (backport unverified)"
     else
-        APPLY_PATCH "system" "system/priv-app/SamsungCamera/SamsungCamera.apk" \
-            "$MODPATH/camera/SamsungCamera.apk/0001-Backport-CONTROL_AVAILABLE_FEATURE_SECOND_PICTURE_CO.patch"
+        PATCHED=true
+        if $TARGET_CAMERA_SUPPORT_MASS_APP_FLAVOR; then
+            APPLY_PATCH "system" "system/priv-app/SamsungCamera/SamsungCamera.apk" \
+                "$MODPATH/camera_mass/SamsungCamera.apk/0001-Backport-CONTROL_AVAILABLE_FEATURE_SECOND_PICTURE_CO.patch"
+        else
+            APPLY_PATCH "system" "system/priv-app/SamsungCamera/SamsungCamera.apk" \
+                "$MODPATH/camera/SamsungCamera.apk/0001-Backport-CONTROL_AVAILABLE_FEATURE_SECOND_PICTURE_CO.patch"
+        fi
     fi
 fi
 
