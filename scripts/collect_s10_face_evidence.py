@@ -24,7 +24,10 @@ MAX_LAMBDA_LINES = 160
 # Limit this to the four verified failing classes and bounded method lengths.
 FULL_METHOD_ANCHORS = {
     "AidlResponseHandler.smali": ("SemFaceServiceExImpl$$ExternalSyntheticLambda6",),
-    "FaceAuthenticationClient.smali": ("authenticate BILG",),
+    # Android 16 renamed the authentication path; the legacy log string is gone.
+    # Preserve the older anchor for donor variants while capturing the actual
+    # semDoAuthenticate method (788 lines in the verified October 27 donor).
+    "FaceAuthenticationClient.smali": ("authenticate BILG", ".method public final semDoAuthenticate()V"),
     "HidlToAidlCallbackConverter.smali": ("onTransact(",),
     "TestHal.smali": ("onTransact(",),
 }

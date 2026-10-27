@@ -98,6 +98,26 @@ class FaceEvidenceTests(unittest.TestCase):
         self.assertIn("355: .end method", report)
         self.assertEqual(path.read_text(), method)
 
+    def test_captures_android16_face_authentication_method_without_legacy_log(self):
+        # The verified Android 16 donor has semDoAuthenticate(), not
+        # the obsolete "authenticate BILG" log string.
+        rel = ("com/android/server/biometrics/sensors/face/aidl/"
+               "FaceAuthenticationClient.smali")
+        path = self.root / "smali" / rel
+        path.parent.mkdir(parents=True)
+        method = (".class public Lx;\n"
+                  ".method public final semDoAuthenticate()V\n"
+                  "    .locals 17\n"
+                  + "    nop\n" * 788
+                  + "    return-void\n.end method\n")
+        path.write_text(method)
+        patch = ("diff --git a/smali/" + rel + " b/smali/" + rel + "\n")
+        report = COLLECTOR.capture(self.root, patch)
+        self.assertIn("Complete method evidence at 2:", report)
+        self.assertIn(".method public final semDoAuthenticate()V", report)
+        self.assertIn("793: .end method", report)
+        self.assertEqual(path.read_text(), method)
+
     def test_rejects_oversized_full_method_without_unbounded_dump(self):
         rel = ("com/android/server/biometrics/sensors/face/hidl/"
                "TestHal.smali")
