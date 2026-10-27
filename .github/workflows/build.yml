@@ -85,6 +85,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_smali_patch_remap.py' -v
           python3 -m unittest discover -s tests -p 'test_s10_camera_evidence.py' -v
           python3 -m unittest discover -s tests -p 'test_s10_scene_bridge.py' -v
+          python3 -m unittest discover -s tests -p 'test_s10_legacy_camera_guard.py' -v
           python3 -m unittest discover -s tests -p 'test_s10_face_evidence.py' -v
           grep -q -- '--no-rom-zip' .github/workflows/compile-s10.yml
 
