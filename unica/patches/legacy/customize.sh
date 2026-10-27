@@ -155,6 +155,16 @@ if [ "$TARGET_PLATFORM_SDK_VERSION" -lt "34" ]; then
     if $TARGET_CAMERA_SUPPORT_MASS_APP_FLAVOR; then
         APPLY_PATCH "system" "system/priv-app/SamsungCamera/SamsungCamera.apk" \
             "$MODPATH/camera_mass/SamsungCamera.apk/0001-Backport-legacy-Scene-detection-code.patch"
+    elif [[ "$TARGET_PLATFORM" == "exynos9820" ]]; then
+        # Android 16 donor uses obfuscated node callback implementers and a
+        # different MakerCallbackManager. Never apply the old six-hunk patch
+        # against those incompatible methods.
+        DECODE_APK "system" "system/priv-app/SamsungCamera/SamsungCamera.apk" || return 1
+        if ! python3 "$SRC_DIR/scripts/backport_s10_scene_detection.py" \
+                "$APKTOOL_DIR/system/priv-app/SamsungCamera/SamsungCamera.apk"; then
+            ABORT "S10 SamsungCamera scene callback bridge is incompatible with this donor"
+            return 1
+        fi
     else
         APPLY_LEGACY_SCENE_PATCH
     fi
