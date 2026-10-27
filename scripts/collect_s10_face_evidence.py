@@ -33,6 +33,14 @@ FULL_METHOD_ANCHORS = {
 }
 MAX_FULL_METHOD_LINES = 1600
 MAX_FULL_METHODS_PER_CLASS = 2
+# The four verified Android 16 donor mismatches need complete class context
+# (fields, method references, labels and call sites) for a bytecode-safe rebase.
+# This mode is opt-in for failed CI evidence; never dump unrelated classes.
+FULL_CLASS_NAMES = frozenset({
+    "AidlResponseHandler.smali", "FaceAuthenticationClient.smali",
+    "HidlToAidlCallbackConverter.smali", "TestHal.smali",
+})
+MAX_FULL_CLASS_LINES = 2500
 
 
 def patch_classes(patch_text: str) -> list[str]:
@@ -59,7 +67,7 @@ def excerpt(lines: list[str], limit: int, focus: int) -> list[str]:
     return [f"{i + 1}: {lines[i]}" for i in range(lo, hi)]
 
 
-def capture(decoded: Path, patch_text: str) -> str:
+def capture(decoded: Path, patch_text: str, full_classes: bool = False) -> str:
     if not decoded.is_dir():
         raise ValueError(f"decoded services.jar directory missing: {decoded}")
     report = ["S10 face HIDL 2.0 patch mismatch: donor smali evidence",
@@ -75,6 +83,12 @@ def capture(decoded: Path, patch_text: str) -> str:
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
         report.append(f"Actual path: {path.relative_to(decoded)}; lines: {len(lines)}")
         report.extend(f"{i + 1}: {line}" for i, line in enumerate(lines[:45]))
+        if full_classes and path.name in FULL_CLASS_NAMES:
+            if len(lines) > MAX_FULL_CLASS_LINES:
+                report.append(f"Full class exceeds {MAX_FULL_CLASS_LINES} lines; not exported")
+            else:
+                report.append(f"Complete class evidence: {path.name}; {len(lines)} lines")
+                report.extend(f"{i + 1}: {line}" for i, line in enumerate(lines))
         methods = []
         all_methods = []
         start = None
@@ -136,9 +150,12 @@ def main() -> int:
     parser.add_argument("decoded_services", type=Path)
     parser.add_argument("face_patch", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--full-classes", action="store_true",
+                        help="Include bounded full text of four verified donor mismatch classes")
     args = parser.parse_args()
     try:
-        content = capture(args.decoded_services, args.face_patch.read_text(encoding="utf-8"))
+        content = capture(args.decoded_services, args.face_patch.read_text(encoding="utf-8"),
+                          full_classes=args.full_classes)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(content, encoding="utf-8")
     except (OSError, ValueError) as exc:
