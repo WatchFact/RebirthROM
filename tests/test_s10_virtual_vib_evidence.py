@@ -66,9 +66,9 @@ class EvidenceTests(unittest.TestCase):
             root = Path(temp)
             helper = root / 'smali_classes3/com/android/server/vibrator/VirtualVibSoundHelper.smali'
             helper.parent.mkdir(parents=True)
-            original = ('.class public Lcom/android/server/vibrator/VirtualVibSoundHelper;\\n'
-                        '.method public stopVirtualSound(Ljava/lang/String;)V\\n'
-                        '    return-void\\n.end method\\n')
+            original = ('.class public Lcom/android/server/vibrator/VirtualVibSoundHelper;\n'
+                        '.method public stopVirtualSound(Ljava/lang/String;)V\n'
+                        '    return-void\n.end method\n')
             helper.write_text(original)
             result = module.capture(root, PATCH)
             self.assertIn('VirtualVibSoundHelper.smali', result)
