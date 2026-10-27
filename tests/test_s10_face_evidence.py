@@ -64,22 +64,21 @@ class FaceEvidenceTests(unittest.TestCase):
         self.assertLess(len(report.splitlines()), 650)
 
     def test_complete_aidl_method_uses_actual_double_dollar_lambda_name(self):
-        # Android 16 donor uses a synthetic class with '$' in its name.
+        # Android 16 donor uses a synthetic class with two dollar signs.
         # A single-dollar anchor silently omits the complete method.
-        source = (
-            ".class public Lx;\\n"
-            ".method public final dispatch()V\\n"
-            "    .locals 1\\n"
-            "    new-instance v0, Lcom/android/server/biometrics/sensors/face/aidl/"
-            "SemFaceServiceExImpl$ExternalSyntheticLambda6;\\n"
-            "    return-void\\n"
-            ".end method\\n"
-        )
+        source = "\n".join([
+            ".class public Lx;",
+            ".method public final dispatch()V",
+            "    .locals 1",
+            "    new-instance v0, Lcom/android/server/biometrics/sensors/face/aidl/SemFaceServiceExImpl$$ExternalSyntheticLambda6;",
+            "    return-void",
+            ".end method",
+        ]) + "\n"
         self.source.write_text(source)
         report = COLLECTOR.capture(self.root, PATCH)
         self.assertIn("Complete method evidence at 2:", report)
-        self.assertIn("SemFaceServiceExImpl$ExternalSyntheticLambda6;", report)
-        self.assertIn("7: .end method", report)
+        self.assertIn("SemFaceServiceExImpl$$ExternalSyntheticLambda6;", report)
+        self.assertIn("6: .end method", report)
         self.assertEqual(self.source.read_text(), source)
 
     def test_captures_complete_ontransact_method_for_exact_rebase(self):
