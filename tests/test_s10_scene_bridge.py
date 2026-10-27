@@ -57,7 +57,11 @@ class SceneBridgeTests(unittest.TestCase):
         edited = bridge.adapt(self.root)
         self.assertEqual(len(edited), 7)
         self.assertIn("volatile sceneDetectionEvent:I", self.files[bridge.FORWARDER].read_text())
-        manager = self.files[bridge.MANAGER].read_text()\n        self.assertIn(":rebirth_scene_done", manager)\n        self.assertIn("    .locals 3", manager)\n        self.assertIn("    const/4 v2, 0x2", manager)\n        self.assertNotIn("    const/4 v0, 0x2", manager)
+        manager = self.files[bridge.MANAGER].read_text()
+        self.assertIn(":rebirth_scene_done", manager)
+        self.assertIn("    .locals 3", manager)
+        self.assertIn("    const/4 v2, 0x2", manager)
+        self.assertNotIn("    const/4 v0, 0x2", manager)
         for name in bridge.CALLBACKS:
             self.assertIn("sput p1", self.files[f"maker/{name}.smali"].read_text())
         with self.assertRaises(ValueError):
