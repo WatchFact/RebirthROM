@@ -132,6 +132,29 @@ class FaceEvidenceTests(unittest.TestCase):
         self.assertIn("Method exceeds 1600 lines; not exported", report)
         self.assertLess(len(report.splitlines()), 400)
 
+    def test_opt_in_full_class_evidence_is_bounded_and_read_only(self):
+        # The full Android 16 class context is required for an exact patch
+        # rebase, but must not leak unrelated or unbounded decoded classes.
+        source = (".class public Lx;\\n" + "    nop\\n" * 120 +
+                  ".method public final onEnrollmentProgress(II)V\\n" +
+                  "    return-void\\n.end method\\n")
+        self.source.write_text(source)
+        default = COLLECTOR.capture(self.root, PATCH)
+        self.assertNotIn("Complete class evidence:", default)
+        report = COLLECTOR.capture(self.root, PATCH, full_classes=True)
+        self.assertIn("Complete class evidence: AidlResponseHandler.smali", report)
+        self.assertIn("124: .end method", report)
+        self.assertEqual(self.source.read_text(), source)
+
+    def test_full_class_limit_rejects_oversized_donor(self):
+        source = ".class public Lx;\\n" + "    nop\\n" * 2600
+        self.source.write_text(source)
+        report = COLLECTOR.capture(self.root, PATCH, full_classes=True)
+        self.assertIn("Full class exceeds 2500 lines; not exported", report)
+        self.assertNotIn("Complete class evidence:", report)
+        self.assertLess(len(report.splitlines()), 120)
+        self.assertEqual(self.source.read_text(), source)
+
     def test_patch_parser_rejects_empty_and_unsafe_paths(self):
         with self.assertRaises(ValueError):
             COLLECTOR.patch_classes("not a diff")
