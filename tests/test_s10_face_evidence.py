@@ -68,13 +68,13 @@ class FaceEvidenceTests(unittest.TestCase):
                "HidlToAidlCallbackConverter.smali")
         path = self.root / "smali" / rel
         path.parent.mkdir(parents=True)
-        method = (".class public Lx;\\n"
-                  ".method public final onTransact(ILandroid/os/HwParcel;)V\\n"
-                  "    .locals 2\\n"
-                  + "    nop\\n" * 350
-                  + "    return-void\\n.end method\\n")
+        method = (".class public Lx;\n"
+                  ".method public final onTransact(ILandroid/os/HwParcel;)V\n"
+                  "    .locals 2\n"
+                  + "    nop\n" * 350
+                  + "    return-void\n.end method\n")
         path.write_text(method)
-        patch = ("diff --git a/smali/" + rel + " b/smali/" + rel + "\\n")
+        patch = ("diff --git a/smali/" + rel + " b/smali/" + rel + "\n")
         report = COLLECTOR.capture(self.root, patch)
         self.assertIn("Complete method evidence at 2:", report)
         self.assertIn("355: .end method", report)
@@ -85,11 +85,11 @@ class FaceEvidenceTests(unittest.TestCase):
                "TestHal.smali")
         path = self.root / "smali" / rel
         path.parent.mkdir(parents=True)
-        path.write_text(".class public Lx;\\n"
-                        ".method public onTransact()V\\n"
-                        + "    nop\\n" * 2000
-                        + "    return-void\\n.end method\\n")
-        patch = ("diff --git a/smali/" + rel + " b/smali/" + rel + "\\n")
+        path.write_text(".class public Lx;\n"
+                        ".method public onTransact()V\n"
+                        + "    nop\n" * 2000
+                        + "    return-void\n.end method\n")
+        patch = ("diff --git a/smali/" + rel + " b/smali/" + rel + "\n")
         report = COLLECTOR.capture(self.root, patch)
         self.assertIn("Method exceeds 1600 lines; not exported", report)
         self.assertLess(len(report.splitlines()), 400)
