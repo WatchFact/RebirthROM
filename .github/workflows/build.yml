@@ -1,0 +1,177 @@
+name: Verify S10 integration
+on:
+  push:
+    branches: [sixteen-qpr2]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  full-source-syntax:
+    name: Parse all tracked scripts and workflow YAML
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository metadata and core scripts
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            scripts
+            tests
+            target
+            platform/exynos9820
+            unica/configs
+            .github/workflows
+      - name: Parse every tracked shell script, even sparse-excluded modules
+        shell: bash
+        run: |
+          set -euo pipefail
+          total=0
+          failed=0
+          while IFS= read -r -d '' script; do
+            # A tracked symlink points to its real shell script elsewhere in
+            # the repository, rather than containing shell source itself.
+            mode="$(git ls-files -s -- "$script" | awk '{print $1}')"
+            if [[ "$mode" == 120000 ]]; then
+              link="$(git show "HEAD:$script")"
+              resolved="$(realpath -m --relative-to="$PWD" "$(dirname "$script")/$link")"
+              if [[ "$resolved" == ../* || "$resolved" == /* ]]; then
+                echo "::error file=$script::Symlink escapes repository"
+                failed=$((failed + 1))
+                continue
+              fi
+              script="$resolved"
+            fi
+            total=$((total + 1))
+            if ! git show "HEAD:$script" | bash -n; then
+              echo "::error file=$script::Bash parse failed"
+              failed=$((failed + 1))
+            fi
+          done < <(git ls-files -z -- '*.sh' '*.bash')
+          echo "Parsed $total tracked shell files; syntax failures: $failed"
+          (( total >= 100 )) || { echo "::error::Unexpectedly few scripts scanned"; exit 1; }
+          (( failed == 0 ))
+      - name: Parse XML, JSON and Python source resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/validate_source_resources.py
+      - name: Verify tracked Samsung prebuilt dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/validate_prebuilt_references.py
+      - name: Parse workflow YAML syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruby -r yaml -e 'ARGV.each { |path| YAML.load_file(path); puts "YAML syntax OK: #{path}" }' .github/workflows/*.yml
+
+      - name: Test camera patch path remapping and bounded failure diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_smali_patch_remap.py' -v
+          python3 -m unittest discover -s tests -p 'test_s10_camera_evidence.py' -v
+          grep -q -- '--no-rom-zip' .github/workflows/compile-s10.yml
+
+  validate:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [beyond0lte, beyond1lte, beyond2lte, beyondx]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Keep source tests fast and inside hosted runner disk limits.
+          # Full firmware/prebuilt checkout is reserved for actual ROM builds.
+          sparse-checkout: |
+            scripts
+            tests
+            target
+            platform/exynos9820
+            unica/configs
+            security
+      - name: Validate shell scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          # These scripts are called directly by the ROM build; syntax tests alone
+          # do not catch a lost Git executable bit (mode 100755).
+          for script in scripts/internal/gen_config_file.sh scripts/internal/build_flashable_zip.sh scripts/internal/build_legacy_flashable_zip.sh; do
+            test -x "$script" || { echo "::error::Not executable: $script"; exit 1; }
+          done
+          bash -n scripts/internal/gen_config_file.sh
+          bash -n scripts/internal/build_flashable_zip.sh
+          bash -n scripts/internal/build_legacy_flashable_zip.sh
+          # The physical-partition installer must require all OTA data streams.
+          grep -q 'part.patch.dat' scripts/internal/build_legacy_flashable_zip.sh
+          grep -q 'ro.boot.em.model' scripts/internal/build_legacy_flashable_zip.sh
+          if grep -Eq '^[[:space:]]*(update_dynamic_partitions|lpmake|BUILD_SUPER_EMPTY)' scripts/internal/build_legacy_flashable_zip.sh; then
+            echo "::error::Dynamic partition operation found in S10 installer"
+            exit 1
+          fi
+          bash -n platform/exynos9820/config.sh
+          bash -n "target/${{ matrix.target }}/config.sh"
+          find platform/exynos9820/patches -name '*.sh' -print0 | xargs -0 -r -n1 bash -n
+      - name: Generate real S10 build configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          temp_dir="$(mktemp -d)"
+          trap 'rm -rf "$temp_dir"' EXIT
+          export SRC_DIR="$GITHUB_WORKSPACE" OUT_DIR="$temp_dir"
+          bash scripts/internal/gen_config_file.sh "${{ matrix.target }}"
+          test -s "$temp_dir/config.sh"
+          # shellcheck disable=SC1091
+          source "$temp_dir/config.sh"
+          [[ "$TARGET_CODENAME" == "${{ matrix.target }}" ]]
+          [[ "$TARGET_PLATFORM_SDK_VERSION" == 31 ]]
+          [[ "$TARGET_USE_DYNAMIC_PARTITIONS" == false ]]
+          [[ "$TARGET_OS_FILE_SYSTEM_TYPE" == ext4 ]]
+          [[ "$TARGET_OS_BUILD_SYSTEM_EXT_PARTITION" == false ]]
+          [[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == essi ]]
+          [[ "$TARGET_BOARD_API_LEVEL" == 31 ]]
+          [[ "$TARGET_BOOT_IMAGE_SHA256" == none ]]
+          # Reject false "native donor stack" for Exynos9820.
+          [[ "$SOURCE_USE_NATIVE_DISPLAY_STACK" == false ]]
+          [[ "$SOURCE_USE_NATIVE_FINGERPRINT_UI" == false ]]
+          echo "Generated modern target configuration for $TARGET_CODENAME"
+      - name: Exercise legacy recovery packager with fake payloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tests/s10_zip_smoke.sh "${{ matrix.target }}"
+      - name: Verify S10 target configurations and physical partition layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=(beyond0lte beyond1lte beyond2lte beyondx)
+          mapfile -t actual < <(find target -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
+          [[ "${actual[*]}" == "${expected[*]}" ]]
+          # Validate the full Git tree, including paths excluded by sparse checkout.
+          # Do not allow accidental reintroduction of old Note20/S20 device data.
+          for legacy in target/c1s target/c2s target/x1s target/y2s target/z3s platform/exynos990 \
+              prebuilts/samsung/c1sxxx prebuilts/samsung/c2sxxx \
+              prebuilts/samsung/x1sxxx prebuilts/samsung/y2sxxx prebuilts/samsung/z3sxxx; do
+            if [[ -n "$(git ls-tree --name-only HEAD "$legacy")" ]]; then
+              echo "::error::Unexpected legacy device asset: $legacy"
+              exit 1
+            fi
+          done
+          test ! -d platform/exynos990
+          test -f platform/exynos9820/installer/recovery.fstab
+          test -f platform/exynos9820/patches/extremekrnl/disable
+          source platform/exynos9820/config.sh
+          source "target/${{ matrix.target }}/config.sh"
+          [[ "$TARGET_CODENAME" == "${{ matrix.target }}" ]]
+          [[ "$TARGET_PLATFORM" == "exynos9820" ]]
+          [[ "$TARGET_USE_DYNAMIC_PARTITIONS" == false ]]
+          [[ "$TARGET_OS_FILE_SYSTEM_TYPE" == ext4 ]]
+          [[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == essi ]]
+          [[ "$TARGET_OS_BUILD_SYSTEM_EXT_PARTITION" == false ]]
+          test -f "target/$TARGET_CODENAME/camera/camera-feature.xml"
+          for part in system vendor product odm; do
+            grep -qF "/dev/block/by-name/$part " platform/exynos9820/installer/recovery.fstab
+          done
+          echo "S10 integration source checks passed for $TARGET_CODENAME"
+          echo "::warning::Source checks are not hardware boot verification. ROM publishing disabled."

@@ -145,6 +145,14 @@ jobs:
             -exec cp {} compile-report/ \; 2>/dev/null || true
           # Preserve the exact thermal-policy/parser evidence after an abort.
           python3 scripts/collect_s10_thermal_evidence.py out compile-report/thermal
+          # When the donor SamsungCamera patch rejects its smali hunks,
+          # capture only bounded class/method excerpts for an exact rebase.
+          # Do not silently skip the incompatible compatibility patch.
+          CAMERA_APK=out/target/beyond2lte/apktool/system/priv-app/SamsungCamera/SamsungCamera.apk
+          if [[ ! -s out/target/beyond2lte/work_dir/.completed && -d "$CAMERA_APK" ]]; then
+            python3 scripts/collect_s10_camera_evidence.py "$CAMERA_APK" compile-report/camera/donor-smali-excerpts.txt
+          fi
+
 
 
       - name: Upload compilation report
