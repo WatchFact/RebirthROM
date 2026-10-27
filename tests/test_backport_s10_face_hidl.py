@@ -48,6 +48,22 @@ class S10FaceRebaseTests(unittest.TestCase):
         with self.assertRaises(face.DonorMismatch):
             face.filter_patch(patch.replace("diff --git a/" + files[0], "diff --git a/other", 1))
 
+    def test_real_shared_patch_has_exact_expected_classes(self):
+        root = Path(__file__).resolve().parents[1]
+        patch = root / "unica/patches/legacy/face/services.jar/0001-Fallback-to-Face-HIDL-2.0.patch"
+        filtered = face.filter_patch(patch.read_text(encoding="utf-8"))
+        self.assertIn("ISehBiometricsFace$Proxy.smali", filtered)
+        self.assertIn("HidlToAidlSessionAdapter.smali", filtered)
+        self.assertNotIn("diff --git a/" + face.CLASS_PATHS["TestHal"], filtered)
+        shell = (root / "unica/patches/legacy/customize.sh").read_text(encoding="utf-8")
+        self.assertIn('if [[ "$TARGET_PLATFORM" == "exynos9820" ]]; then', shell)
+        self.assertIn('backport_s10_face_hidl.py" adapt', shell)
+        self.assertIn('SemFaceServiceExImpl\$\$ExternalSyntheticLambda6.smali" "remove"', shell)
+        self.assertLess(
+            shell.index('if [[ "$TARGET_PLATFORM" == "exynos9820" ]]; then', shell.index("# Support legacy Face HAL")),
+            shell.index('SemFaceServiceExImpl\$\$ExternalSyntheticLambda6.smali" "remove"'),
+        )
+
     def test_auth_uses_existing_v2_path(self):
         source = '''.method public final semDoAuthenticate()V
     .locals 17
