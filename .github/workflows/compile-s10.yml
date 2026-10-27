@@ -6,6 +6,9 @@ on:
     paths:
       - .github/workflows/compile-s10.yml
       - scripts/**
+      - external/**
+      - prebuilts/samsung/**
+      - security/**
       - target/beyond2lte/**
       - platform/exynos9820/**
       - unica/**

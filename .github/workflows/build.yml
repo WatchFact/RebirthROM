@@ -65,6 +65,19 @@ jobs:
           set -euo pipefail
           ruby -r yaml -e 'ARGV.each { |path| YAML.load_file(path); puts "YAML syntax OK: #{path}" }' .github/workflows/*.yml
 
+      - name: Verify hardware dependencies trigger S10 compilation
+        shell: bash
+        run: |
+          set -euo pipefail
+          for dependency in \
+            '.github/workflows/compile-s10.yml' \
+            'scripts/**' 'external/**' 'prebuilts/samsung/**' \
+            'security/**' 'target/beyond2lte/**' 'platform/exynos9820/**' 'unica/**'; do
+            if ! grep -Fqx "      - $dependency" .github/workflows/compile-s10.yml; then
+              echo "::error::S10 compilation ignores dependency changes: $dependency"
+              exit 1
+            fi
+          done
       - name: Test camera patch path remapping and bounded failure diagnostics
         shell: bash
         run: |
