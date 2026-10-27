@@ -54,6 +54,34 @@ class CameraEvidenceTests(unittest.TestCase):
         second.write_text(self.source)
         self.assertIn("Expected one class; found 2", COLLECTOR.capture(self.root))
 
+
+    def test_captures_scene_node_callback_implementers(self):
+        callback = self.first.parent / "AutoBeautyPhotoMaker$6.smali"
+        source = (".class Lx;\n"
+                  ".implements Lcom/samsung/android/camera/core2/node/sceneDetection/SceneDetectionNodeBase$NodeCallback;\n"
+                  ".method public a(I[J)V\n    return-void\n.end method\n")
+        callback.write_text(source)
+        unrelated = self.first.parent / "AutoBeautyPhotoMaker$5.smali"
+        unrelated.write_text(".class Ly;\n.implements Lother/Interface;\n")
+        report = COLLECTOR.capture(self.root)
+        self.assertIn("SceneDetectionNodeBase callback implementers: 1", report)
+        self.assertIn("AutoBeautyPhotoMaker$6.smali", report)
+        self.assertNotIn("AutoBeautyPhotoMaker$5.smali", report)
+        self.assertEqual(callback.read_text(), source)
+
+    def test_bounds_anonymous_callback_evidence(self):
+        for index in range(16):
+            path = self.first.parent / f"AutoBeautyPhotoMaker${index}.smali"
+            path.write_text(
+                ".class Lx;\n"
+                ".implements Lcom/samsung/android/camera/core2/node/sceneDetection/SceneDetectionNodeBase$NodeCallback;\n"
+                + "    nop\n" * 500
+            )
+        report = COLLECTOR.capture(self.root)
+        self.assertIn("SceneDetectionNodeBase callback implementers: 16", report)
+        self.assertEqual(report.count("Truncated after 220 lines"), 12)
+        self.assertLess(len(report.splitlines()), 3000)
+
     def test_rejects_missing_decoded_apk(self):
         with self.assertRaises(ValueError):
             COLLECTOR.capture(self.root / "absent")

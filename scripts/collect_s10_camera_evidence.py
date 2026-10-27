@@ -14,6 +14,9 @@ CLASSES = (
     "maker/DualBokehPhotoMaker.smali",
     "maker/MakerCallbackManager.smali",
     "maker/SuperNightPhotoMaker.smali",
+    "callback/forwarder/SceneDetectionEventCallbackForwarder.smali",
+    "callback/SceneDetectionEventCallback.smali",
+    "node/sceneDetection/SceneDetectionNodeBase$NodeCallback.smali",
 )
 # Android 16 donor scene callbacks can be obfuscated: method names and the
 # SceneDetectionEventCallback type need not survive into maker methods. Node
@@ -29,6 +32,12 @@ NEEDLES = (
 )
 MAX_METHODS = 8
 MAX_METHOD_LINES = 145
+# Android 16 routes scene events through anonymous maker node callbacks,
+# rather than the legacy lambda methods. Capture the exact implementation
+# before rebasing bytecode; never infer signatures from old patches.
+SCENE_NODE_INTERFACE = "Lcom/samsung/android/camera/core2/node/sceneDetection/SceneDetectionNodeBase$NodeCallback;"
+MAX_NODE_CALLBACK_CLASSES = 12
+MAX_NODE_CALLBACK_LINES = 220
 
 
 def capture(decoded: Path) -> str:
@@ -74,6 +83,22 @@ def capture(decoded: Path) -> str:
             high = min(end, low + MAX_METHOD_LINES)
             report.append(f"Method: {lines[start]} at {start + 1}; excerpt {low + 1}-{high}")
             report.extend(f"{i + 1}: {lines[i]}" for i in range(low, high))
+    # Inspect only scene-detection node callback implementers, not unrelated
+    # inner classes. Keep output bounded and the decoded APK read-only.
+    callbacks = []
+    for path in sorted(decoded.glob("smali*/com/samsung/android/camera/core2/maker/*PhotoMaker$*.smali")):
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        if f".implements {SCENE_NODE_INTERFACE}" in lines[:60]:
+            callbacks.append((path, lines))
+    report.append(
+        f"\n## SceneDetectionNodeBase callback implementers: {len(callbacks)} "
+        f"(up to {MAX_NODE_CALLBACK_CLASSES} classes, {MAX_NODE_CALLBACK_LINES} lines each)"
+    )
+    for path, lines in callbacks[:MAX_NODE_CALLBACK_CLASSES]:
+        report.append(f"Path: {path.relative_to(decoded)}; total lines: {len(lines)}")
+        report.extend(f"{i + 1}: {line}" for i, line in enumerate(lines[:MAX_NODE_CALLBACK_LINES]))
+        if len(lines) > MAX_NODE_CALLBACK_LINES:
+            report.append(f"Truncated after {MAX_NODE_CALLBACK_LINES} lines")
     return "\n".join(report) + "\n"
 
 
