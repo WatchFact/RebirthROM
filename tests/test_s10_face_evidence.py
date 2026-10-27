@@ -63,6 +63,37 @@ class FaceEvidenceTests(unittest.TestCase):
         self.assertIn("Truncated after 160 lines", report)
         self.assertLess(len(report.splitlines()), 650)
 
+    def test_captures_complete_ontransact_method_for_exact_rebase(self):
+        rel = ("com/android/server/biometrics/sensors/face/hidl/"
+               "HidlToAidlCallbackConverter.smali")
+        path = self.root / "smali" / rel
+        path.parent.mkdir(parents=True)
+        method = (".class public Lx;\\n"
+                  ".method public final onTransact(ILandroid/os/HwParcel;)V\\n"
+                  "    .locals 2\\n"
+                  + "    nop\\n" * 350
+                  + "    return-void\\n.end method\\n")
+        path.write_text(method)
+        patch = ("diff --git a/smali/" + rel + " b/smali/" + rel + "\\n")
+        report = COLLECTOR.capture(self.root, patch)
+        self.assertIn("Complete method evidence at 2:", report)
+        self.assertIn("354: .end method", report)
+        self.assertEqual(path.read_text(), method)
+
+    def test_rejects_oversized_full_method_without_unbounded_dump(self):
+        rel = ("com/android/server/biometrics/sensors/face/hidl/"
+               "TestHal.smali")
+        path = self.root / "smali" / rel
+        path.parent.mkdir(parents=True)
+        path.write_text(".class public Lx;\\n"
+                        ".method public onTransact()V\\n"
+                        + "    nop\\n" * 2000
+                        + "    return-void\\n.end method\\n")
+        patch = ("diff --git a/smali/" + rel + " b/smali/" + rel + "\\n")
+        report = COLLECTOR.capture(self.root, patch)
+        self.assertIn("Method exceeds 1600 lines; not exported", report)
+        self.assertLess(len(report.splitlines()), 400)
+
     def test_patch_parser_rejects_empty_and_unsafe_paths(self):
         with self.assertRaises(ValueError):
             COLLECTOR.patch_classes("not a diff")
