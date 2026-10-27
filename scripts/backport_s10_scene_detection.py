@@ -85,17 +85,17 @@ def patch_manager(s: str) -> str:
     bridge = (f"\n    if-nez p3, :rebirth_scene_done\n\n"
               f"    sget v1, {FIELD}\n\n"
               "    const/4 p3, 0x0\n\n"
-              "    const/4 v0, 0x2\n\n"
-              "    if-eq v1, v0, :rebirth_scene_true\n\n"
-              "    const/16 v0, 0x27\n\n"
-              "    if-ne v1, v0, :rebirth_scene_false\n\n"
+              "    const/4 v2, 0x2\n\n"
+              "    if-eq v1, v2, :rebirth_scene_true\n\n"
+              "    const/16 v2, 0x27\n\n"
+              "    if-ne v1, v2, :rebirth_scene_false\n\n"
               "    :rebirth_scene_true\n"
               "    const/4 p3, 0x1\n\n"
               "    :rebirth_scene_false\n"
               "    invoke-static {p3}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;\n\n"
               "    move-result-object p3\n\n"
               "    :rebirth_scene_done\n")
-    method = one_replace(method, anchor, anchor + bridge, "manager fallback")
+    # v0 contains the live TextDetectionInfoCallback object; never clobber it.\n    method = one_replace(method, "    .locals 2\n", "    .locals 3\n", "manager register expansion")\n    method = one_replace(method, anchor, anchor + bridge, "manager fallback")
     return s[:start] + method + s[end:]
 
 
