@@ -135,9 +135,9 @@ class FaceEvidenceTests(unittest.TestCase):
     def test_opt_in_full_class_evidence_is_bounded_and_read_only(self):
         # The full Android 16 class context is required for an exact patch
         # rebase, but must not leak unrelated or unbounded decoded classes.
-        source = (".class public Lx;\\n" + "    nop\\n" * 120 +
-                  ".method public final onEnrollmentProgress(II)V\\n" +
-                  "    return-void\\n.end method\\n")
+        source = (".class public Lx;\n" + "    nop\n" * 120 +
+                  ".method public final onEnrollmentProgress(II)V\n" +
+                  "    return-void\n.end method\n")
         self.source.write_text(source)
         default = COLLECTOR.capture(self.root, PATCH)
         self.assertNotIn("Complete class evidence:", default)
@@ -147,7 +147,7 @@ class FaceEvidenceTests(unittest.TestCase):
         self.assertEqual(self.source.read_text(), source)
 
     def test_full_class_limit_rejects_oversized_donor(self):
-        source = ".class public Lx;\\n" + "    nop\\n" * 2600
+        source = ".class public Lx;\n" + "    nop\n" * 2600
         self.source.write_text(source)
         report = COLLECTOR.capture(self.root, PATCH, full_classes=True)
         self.assertIn("Full class exceeds 2500 lines; not exported", report)
