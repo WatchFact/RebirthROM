@@ -96,7 +96,8 @@ def patch_manager(s: str) -> str:
               "    move-result-object p3\n\n"
               "    :rebirth_scene_done\n")
     # v0 contains the live TextDetectionInfoCallback object; never clobber it.
-    method = one_replace(method, "    .locals 2\n", "    .locals 3\n", "manager register expansion")\n    method = one_replace(method, anchor, anchor + bridge, "manager fallback")
+    method = one_replace(method, "    .locals 2\n", "    .locals 3\n", "manager register expansion")
+    method = one_replace(method, anchor, anchor + bridge, "manager fallback")
     return s[:start] + method + s[end:]
 
 
