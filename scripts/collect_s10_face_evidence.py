@@ -8,7 +8,7 @@ import argparse
 from pathlib import Path, PurePosixPath
 import re
 
-DIFF = re.compile(r"^diff --git a/(smali(?:_classes[0-9]+)?/[^\\n]+\\.smali) b/\\1$", re.MULTILINE)
+DIFF = re.compile(r"^diff --git a/(smali(?:_classes[0-9]+)?/[^\n]+\.smali) b/\1$", re.MULTILINE)
 NEEDLES = (
     "V3_0/ISehBiometricsFace", "V2_0/ISehBiometricsFace",
     "sehAuthenticateForIssuance", "HidlToAidl", "mIsAuthenticationExtOperation",
