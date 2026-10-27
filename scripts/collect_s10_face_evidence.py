@@ -23,7 +23,7 @@ MAX_LAMBDA_LINES = 160
 # Android 16 switch tables and exception/branch labels without guessing.
 # Limit this to the four verified failing classes and bounded method lengths.
 FULL_METHOD_ANCHORS = {
-    "AidlResponseHandler.smali": ("SemFaceServiceExImpl$ExternalSyntheticLambda6",),
+    "AidlResponseHandler.smali": ("SemFaceServiceExImpl$$ExternalSyntheticLambda6",),
     "FaceAuthenticationClient.smali": ("authenticate BILG",),
     "HidlToAidlCallbackConverter.smali": ("onTransact(",),
     "TestHal.smali": ("onTransact(",),
