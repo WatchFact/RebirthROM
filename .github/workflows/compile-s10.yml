@@ -152,6 +152,13 @@ jobs:
           if [[ ! -s out/target/beyond2lte/work_dir/.completed && -d "$CAMERA_APK" ]]; then
             python3 scripts/collect_s10_camera_evidence.py "$CAMERA_APK" compile-report/camera/donor-smali-excerpts.txt
           fi
+          # Preserve bounded Android 16 donor evidence for the legacy face
+          # HIDL 2.0 patch; never bypass or guess incompatible bytecode.
+          FACE_JAR=out/target/beyond2lte/apktool/system/framework/services.jar
+          FACE_PATCH=unica/patches/legacy/face/services.jar/0001-Fallback-to-Face-HIDL-2.0.patch
+          if [[ ! -s out/target/beyond2lte/work_dir/.completed && -d "$FACE_JAR" ]]; then
+            python3 scripts/collect_s10_face_evidence.py "$FACE_JAR" "$FACE_PATCH" compile-report/face/donor-smali-excerpts.txt
+          fi
 
 
 
