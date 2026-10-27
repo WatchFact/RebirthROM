@@ -19,6 +19,17 @@ MAX_METHODS = 6
 MAX_LINES = 190
 MAX_LAMBDAS = 12
 MAX_LAMBDA_LINES = 160
+# Complete method bodies, not arbitrary excerpts, are needed to rebase
+# Android 16 switch tables and exception/branch labels without guessing.
+# Limit this to the four verified failing classes and bounded method lengths.
+FULL_METHOD_ANCHORS = {
+    "AidlResponseHandler.smali": ("SemFaceServiceExImpl$ExternalSyntheticLambda6",),
+    "FaceAuthenticationClient.smali": ("authenticate BILG",),
+    "HidlToAidlCallbackConverter.smali": ("onTransact(",),
+    "TestHal.smali": ("onTransact(",),
+}
+MAX_FULL_METHOD_LINES = 1600
+MAX_FULL_METHODS_PER_CLASS = 2
 
 
 def patch_classes(patch_text: str) -> list[str]:
@@ -86,6 +97,20 @@ def capture(decoded: Path, patch_text: str) -> str:
                 hi = min(end, lo + MAX_LINES)
                 report.append(f"Excerpt {lo + 1}-{hi}")
                 report.extend(f"{j + 1}: {lines[j]}" for j in range(lo, hi))
+        anchors = FULL_METHOD_ANCHORS.get(path.name, ())
+        full_count = 0
+        for _, start, end, _ in sorted(methods, key=lambda x: x[1]):
+            if full_count >= MAX_FULL_METHODS_PER_CLASS:
+                break
+            body = lines[start:end]
+            if not any(anchor in line for anchor in anchors for line in body):
+                continue
+            report.append(f"Complete method evidence at {start + 1}: {lines[start]}; ends at {end}")
+            if end - start > MAX_FULL_METHOD_LINES:
+                report.append(f"Method exceeds {MAX_FULL_METHOD_LINES} lines; not exported")
+                continue
+            report.extend(f"{j + 1}: {lines[j]}" for j in range(start, end))
+            full_count += 1
     # Synthetic lambda numbering changes between Samsung donor revisions.
     # Inventory only the exact face-service lambda family for safe rebasing.
     lambdas = sorted(p for p in decoded.glob(
