@@ -157,7 +157,7 @@ jobs:
           FACE_JAR=out/target/beyond2lte/apktool/system/framework/services.jar
           FACE_PATCH=unica/patches/legacy/face/services.jar/0001-Fallback-to-Face-HIDL-2.0.patch
           if [[ ! -s out/target/beyond2lte/work_dir/.completed && -d "$FACE_JAR" ]]; then
-            python3 scripts/collect_s10_face_evidence.py "$FACE_JAR" "$FACE_PATCH" compile-report/face/donor-smali-excerpts.txt
+            python3 scripts/collect_s10_face_evidence.py "$FACE_JAR" "$FACE_PATCH" compile-report/face/donor-smali-excerpts.txt --full-classes
           fi
 
 
