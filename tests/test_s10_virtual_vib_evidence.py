@@ -61,6 +61,25 @@ class EvidenceTests(unittest.TestCase):
             self.assertIn('Large class', result)
             self.assertIn('onExternalVibrationStart', result)
 
+    def test_unpatched_helper_dependency_is_captured_read_only(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            helper = root / 'smali_classes3/com/android/server/vibrator/VirtualVibSoundHelper.smali'
+            helper.parent.mkdir(parents=True)
+            original = ('.class public Lcom/android/server/vibrator/VirtualVibSoundHelper;\\n'
+                        '.method public stopVirtualSound(Ljava/lang/String;)V\\n'
+                        '    return-void\\n.end method\\n')
+            helper.write_text(original)
+            result = module.capture(root, PATCH)
+            self.assertIn('VirtualVibSoundHelper.smali', result)
+            self.assertIn('smali_classes3/com/android/server/vibrator/VirtualVibSoundHelper.smali', result)
+            self.assertIn('stopVirtualSound', result)
+            self.assertEqual(helper.read_text(), original)
+
+    def test_large_donor_capture_budget_includes_multiple_methods(self):
+        self.assertGreaterEqual(module.MAX_METHODS, 18)
+        self.assertGreaterEqual(module.MAX_TOTAL_LINES, 50000)
+
     def test_malformed_method_is_not_silently_accepted(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
