@@ -73,11 +73,13 @@ def capture(decoded: Path, patch_text: str) -> str:
         report.append(f"Actual path: {path.relative_to(decoded)}; lines: {len(lines)}")
         report.extend(f"{i + 1}: {line}" for i, line in enumerate(lines[:45]))
         methods = []
+        all_methods = []
         start = None
         for i, line in enumerate(lines):
             if line.startswith(".method "):
                 start = i
             elif line == ".end method" and start is not None:
+                all_methods.append((start, i + 1))
                 hits = [j for j in range(start, i + 1)
                         if any(n in lines[j] for n in NEEDLES)]
                 if hits:
@@ -99,7 +101,7 @@ def capture(decoded: Path, patch_text: str) -> str:
                 report.extend(f"{j + 1}: {lines[j]}" for j in range(lo, hi))
         anchors = FULL_METHOD_ANCHORS.get(path.name, ())
         full_count = 0
-        for _, start, end, _ in sorted(methods, key=lambda x: x[1]):
+        for start, end in all_methods:
             if full_count >= MAX_FULL_METHODS_PER_CLASS:
                 break
             body = lines[start:end]
