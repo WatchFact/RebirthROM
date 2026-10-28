@@ -58,10 +58,10 @@ class S10FaceRebaseTests(unittest.TestCase):
         shell = (root / "unica/patches/legacy/customize.sh").read_text(encoding="utf-8")
         self.assertIn('if [[ "$TARGET_PLATFORM" == "exynos9820" ]]; then', shell)
         self.assertIn('backport_s10_face_hidl.py" adapt', shell)
-        self.assertIn('SemFaceServiceExImpl\$\$ExternalSyntheticLambda6.smali" "remove"', shell)
+        self.assertIn(r'SemFaceServiceExImpl\$\$ExternalSyntheticLambda6.smali" "remove"', shell)
         self.assertLess(
             shell.index('if [[ "$TARGET_PLATFORM" == "exynos9820" ]]; then', shell.index("# Support legacy Face HAL")),
-            shell.index('SemFaceServiceExImpl\$\$ExternalSyntheticLambda6.smali" "remove"'),
+            shell.index(r'SemFaceServiceExImpl\$\$ExternalSyntheticLambda6.smali" "remove"'),
         )
 
     def test_auth_uses_existing_v2_path(self):
