@@ -81,6 +81,14 @@ class S10VirtualVibrationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'unexpected virtual-vibration helper assignment'):
             mod.disable(self.root)
 
+    def test_unrecognized_field_access_rejected_without_writes(self):
+        self.reader.write_text(self.reader.read_text() +
+                               '\n    sput-object v0, ' + mod.FIELD + '\n')
+        before = self.manager.read_text()
+        with self.assertRaisesRegex(ValueError, 'unrecognized virtual-vibration field access'):
+            mod.disable(self.root)
+        self.assertEqual(self.manager.read_text(), before)
+
     def test_missing_manager_rejected(self):
         self.manager.unlink()
         with self.assertRaisesRegex(ValueError, 'expected one regular'):
