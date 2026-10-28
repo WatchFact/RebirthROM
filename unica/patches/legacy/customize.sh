@@ -225,6 +225,7 @@ if [ "$TARGET_PLATFORM_SDK_VERSION" -lt "34" ]; then
     fi
 fi
 
+# Support legacy SehLights HAL (pre-API 35)
 # The S10 stock firmware declares android.hardware.light ILights/default (AIDL),
 # with a matching native executable and init service. Android 16's framework
 # chooses either that standard AIDL HAL or Samsung's proprietary SehLights
