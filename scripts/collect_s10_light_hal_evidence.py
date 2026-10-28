@@ -8,15 +8,81 @@ import argparse
 import json
 from pathlib import Path
 import re
+import xml.etree.ElementTree as ET
 
 PATTERN = re.compile(r"(?:android|vendor\.samsung)\.hardware\.light|light-service|\blights?\b", re.I)
 MAX_FILE = 2 * 1024 * 1024
 MAX_MATCHES = 100
 
 
+
+def _local_name(tag: str) -> str:
+    return tag.rsplit("}", 1)[-1]
+
+
+def _light_manifest_entries(file: Path) -> tuple[list[dict], str | None]:
+    """Record actual HAL format/version/instance; never infer compatibility."""
+    try:
+        root = ET.parse(file).getroot()
+    except (ET.ParseError, OSError) as exc:
+        return [], f"Cannot parse VINTF XML: {type(exc).__name__}"
+    declarations = []
+    for hal in root.iter():
+        if _local_name(hal.tag) != "hal":
+            continue
+        children = list(hal)
+        names = [(child.text or "").strip() for child in children
+                 if _local_name(child.tag) == "name"]
+        if not any("hardware.light" in name for name in names):
+            continue
+        interfaces = []
+        for interface in children:
+            if _local_name(interface.tag) != "interface":
+                continue
+            interfaces.append({
+                "name": next(((x.text or "").strip() for x in interface
+                              if _local_name(x.tag) == "name"), ""),
+                "instances": [(x.text or "").strip() for x in interface
+                              if _local_name(x.tag) == "instance"],
+            })
+        declarations.append({
+            "format": hal.attrib.get("format", "unspecified"),
+            "names": names,
+            "versions": [(x.text or "").strip() for x in children
+                         if _local_name(x.tag) == "version"],
+            "transport": [(x.text or "").strip() for x in children
+                          if _local_name(x.tag) == "transport"],
+            "fqnames": [(x.text or "").strip() for x in children
+                        if _local_name(x.tag) == "fqname"],
+            "interfaces": interfaces,
+        })
+    return declarations, None
+
+
+def _light_init_services(lines: list[str]) -> list[dict]:
+    """Capture service executable and declared interfaces from init RC stanzas."""
+    services = []
+    current = None
+    for line in lines:
+        service = re.match(r"^\\s*service\\s+(\\S+)\\s+(\\S+)", line)
+        if service:
+            current = None
+            if PATTERN.search(line):
+                current = {"name": service.group(1), "executable": service.group(2),
+                           "interfaces": []}
+                services.append(current)
+            continue
+        if current:
+            interface = re.match(r"^\\s*interface\\s+(.+?)\\s*$", line)
+            if interface:
+                current["interfaces"].append(interface.group(1))
+    return services
+
+
 def inspect_root(root: Path) -> dict:
     evidence = {"root": str(root), "root_exists": root.is_dir() and not root.is_symlink(),
-                "matches": [], "light_service_binary": "not found"}
+                "matches": [], "light_service_binary": "not found",
+                "hal_declarations": [], "init_services": [], "parse_errors": []}
     if not evidence["root_exists"]:
         return evidence
     binary = root / "vendor/bin/hw/vendor.samsung.hardware.light-service"
@@ -40,6 +106,16 @@ def inspect_root(root: Path) -> dict:
                 evidence["matches"].append({"path": str(file.relative_to(root)),
                                             "error": "non-UTF-8 config (not read)"})
                 continue
+            relative = str(file.relative_to(root))
+            if file.suffix == ".xml" and "vintf" in file.parts:
+                declarations, error = _light_manifest_entries(file)
+                for entry in declarations:
+                    evidence["hal_declarations"].append({"path": relative, **entry})
+                if error:
+                    evidence["parse_errors"].append({"path": relative, "error": error})
+            if file.suffix == ".rc":
+                for entry in _light_init_services(lines):
+                    evidence["init_services"].append({"path": relative, **entry})
             for number, line in enumerate(lines, 1):
                 if PATTERN.search(line):
                     evidence["matches"].append({"path": str(file.relative_to(root)),
