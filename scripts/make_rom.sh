@@ -325,7 +325,17 @@ if $BUILD_ROM; then
         UPDATE_APK_CACHE || exit 1
     fi
 
-    echo -n "$(GET_WORK_DIR_HASH)" > "$WORK_DIR/.completed"
+    # A completed work tree must have a verified input hash. A failed or
+    # malformed digest must not produce a success marker.
+    WORK_DIR_HASH="$(GET_WORK_DIR_HASH)" || {
+        LOGE "Cannot mark completed work directory: input hashing failed"
+        exit 1
+    }
+    if [[ ! "$WORK_DIR_HASH" =~ ^[[:xdigit:]]{64}$ ]]; then
+        LOGE "Cannot mark completed work directory: invalid input hash"
+        exit 1
+    fi
+    printf '%s' "$WORK_DIR_HASH" > "$WORK_DIR/.completed" || exit 1
 fi
 
 if $BUILD_ZIP; then

@@ -102,6 +102,36 @@ class WorkDirectoryCacheTests(unittest.TestCase):
                                     capture_output=True, text=True)
             self.assertNotEqual(result.returncode, 0)
 
+    def test_completed_marker_requires_valid_input_digest(self):
+        # Execute the real completion-marker block in isolation. In particular,
+        # command substitution inside echo previously masked a hash failure.
+        marker_start = "    # A completed work tree must have a verified input hash."
+        marker_block = SOURCE.split(marker_start, 1)[1].split(
+            "\nfi\n\nif $BUILD_ZIP", 1)[0]
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for name, hash_body, valid in (
+                ("hash-failure", "return 1", False),
+                ("invalid-digest", "printf invalid", False),
+                ("valid-digest", "printf '%064d' 0", True),
+            ):
+                with self.subTest(name=name):
+                    work = root / name
+                    work.mkdir()
+                    command = ("set -euo pipefail\n"
+                               "LOGE() { :; }\n"
+                               "GET_WORK_DIR_HASH() { " + hash_body + "; }\n"
+                               + marker_block + "\n")
+                    result = subprocess.run(
+                        ["bash", "-c", command],
+                        env=dict(os.environ, WORK_DIR=str(work)),
+                        capture_output=True, text=True)
+                    self.assertEqual(result.returncode == 0, valid)
+                    self.assertEqual((work / ".completed").exists(), valid)
+                    if valid:
+                        self.assertEqual((work / ".completed").read_text(), "0" * 64)
+
+
 
 if __name__ == "__main__":
     unittest.main()
