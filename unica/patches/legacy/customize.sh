@@ -228,9 +228,9 @@ fi
 # Support legacy SehLights HAL (pre-API 35)
 # - Check for [lsr wD, wS, #0x18] to determine if the newer HAL is already in place
 if [ "$TARGET_PLATFORM_SDK_VERSION" -lt "35" ]; then
+    # Do not use grep -q here: it can SIGPIPE xxd and turn a matching
+    # signature into a false negative when pipefail is enabled.
     if [ -f "$WORK_DIR/vendor/bin/hw/vendor.samsung.hardware.light-service" ] && \
-            # grep -q may terminate xxd early (SIGPIPE); under pipefail that
-            # incorrectly reports a present signature as absent.
             ! xxd -p -c 4 "$WORK_DIR/vendor/bin/hw/vendor.samsung.hardware.light-service" | grep "1853$" >/dev/null; then
         PATCHED=true
         APPLY_PATCH "system" "system/framework/services.jar" \
