@@ -58,6 +58,34 @@ class TestLegacyLightsEvidence(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unterminated"):
             capture(self.root, PATCH)
 
+    def test_light_hal_signature_probe_is_pipefail_safe(self):
+        # An early grep -q exit can SIGPIPE the hex producer and make a
+        # successful match look like a failure when pipefail is active.
+        import subprocess
+
+        customize = (Path(__file__).resolve().parents[1] /
+                     "unica/patches/legacy/customize.sh").read_text(encoding="utf-8")
+        section = customize.split("# Support legacy SehLights HAL", 1)[1].split(
+            "# Ensure config_num_physical_slots", 1)[0]
+        self.assertIn('xxd -p -c 4 "$WORK_DIR/vendor/bin/hw/vendor.samsung.hardware.light-service" | grep "1853$" >/dev/null', section)
+        self.assertNotIn('grep -q "1853$"', section)
+
+        emitter = 'import sys;sys.stdout.write("00001853\\n" + "00000000\\n" * 100000)'
+        command = "set -o pipefail; python3 -c " + repr(emitter) + " | grep '1853
+        patch = (Path(__file__).resolve().parents[1] /
+                 "unica/patches/legacy/lights/services.jar/0001-Backport-legacy-SehLights-HAL-code.patch")
+        names = patch_classes(patch.read_text(encoding="utf-8"))
+        self.assertEqual(len(names), 4)
+        self.assertTrue(any("LightsService$LightImpl" in name for name in names))
+        self.assertTrue(any("PowerManagerUtil" in name for name in names))
+
+
+if __name__ == "__main__":
+    unittest.main()
+ >/dev/null"
+        result = subprocess.run(["bash", "-c", command], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_actual_patch_has_expected_classes(self):
         patch = (Path(__file__).resolve().parents[1] /
                  "unica/patches/legacy/lights/services.jar/0001-Backport-legacy-SehLights-HAL-code.patch")

@@ -229,7 +229,9 @@ fi
 # - Check for [lsr wD, wS, #0x18] to determine if the newer HAL is already in place
 if [ "$TARGET_PLATFORM_SDK_VERSION" -lt "35" ]; then
     if [ -f "$WORK_DIR/vendor/bin/hw/vendor.samsung.hardware.light-service" ] && \
-            ! xxd -p -c 4 "$WORK_DIR/vendor/bin/hw/vendor.samsung.hardware.light-service" | grep -q "1853$"; then
+            # grep -q may terminate xxd early (SIGPIPE); under pipefail that
+            # incorrectly reports a present signature as absent.
+            ! xxd -p -c 4 "$WORK_DIR/vendor/bin/hw/vendor.samsung.hardware.light-service" | grep "1853$" >/dev/null; then
         PATCHED=true
         APPLY_PATCH "system" "system/framework/services.jar" \
             "$MODPATH/lights/services.jar/0001-Backport-legacy-SehLights-HAL-code.patch"
