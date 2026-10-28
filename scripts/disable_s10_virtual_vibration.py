@@ -40,6 +40,9 @@ def disable(root: Path) -> bool:
         raise ValueError(f'expected one regular VibratorManagerService class, found {len(matches)}')
     manager = matches[0]
     source = manager.read_text(encoding='utf-8')
+    field_declaration = '.field public mVirtualVibSoundHelper:Lcom/android/server/vibrator/VirtualVibSoundHelper;'
+    if source.count(field_declaration) != 1:
+        raise ValueError('missing or duplicate virtual-vibration helper field declaration')
     found = list(METHOD.finditer(source))
     if len(found) != 1:
         raise ValueError(f'expected one bootCompleteReady method, found {len(found)}')
