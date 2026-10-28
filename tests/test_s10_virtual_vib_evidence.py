@@ -80,10 +80,10 @@ class EvidenceTests(unittest.TestCase):
         # D8 synthetic class names use a literal double-dollar separator.
         # A single dollar silently misreports the real donor as missing.
         targets = (
-            ('com/android/server/audio/BtHelper$ExternalSyntheticLambda0.smali',
+            ('com/android/server/audio/BtHelper$$ExternalSyntheticLambda0.smali',
              'smali_classes3'),
             ('com/android/server/vibrator/'
-             'VibratorManagerService$SamsungBroadcastReceiver$ExternalSyntheticLambda1.smali',
+             'VibratorManagerService$SamsungBroadcastReceiver$$ExternalSyntheticLambda1.smali',
              'smali_classes4'),
         )
         with tempfile.TemporaryDirectory() as temp:
