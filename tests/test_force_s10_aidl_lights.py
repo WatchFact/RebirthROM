@@ -34,7 +34,7 @@ class TestS10AidlLights(unittest.TestCase):
     def test_selects_standard_aidl_and_is_idempotent(self):
         self.assertTrue(MOD.patch(self.root))
         content = self.power.read_text()
-        self.assertIn('    :goto_1c\n    const/4 v16, 0x0\n\n    sput-boolean v16, ', content)
+        self.assertIn('    :goto_1c\n    const/16 v16, 0x0\n\n    sput-boolean v16, ', content)
         self.assertFalse(MOD.patch(self.root))
         self.assertEqual(self.power.read_text(), content)
 

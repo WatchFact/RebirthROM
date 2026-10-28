@@ -45,12 +45,14 @@ def patch(root: Path) -> bool:
         raise ValueError(f'expected exactly one lights extension assignment, found {len(matches)}')
     match = matches[0]
     reg = match.group(2)
+    if int(reg[1:]) > 255:
+        raise ValueError('HAL selector register exceeds const/16 encoding range')
     if re.search(r'\b' + re.escape(reg) + r'\b', body[match.end():]):
         raise ValueError('HAL selector register is live after assignment; refusing rewrite')
     previous = body[:match.start()]
-    if re.search(r'(?m)^\s*const/4 ' + re.escape(reg) + r', 0x0\s*$', previous[-100:]):
+    if re.search(r'(?m)^\s*const/16 ' + re.escape(reg) + r', 0x0\s*$', previous[-100:]):
         return False
-    replacement = f'{match.group(1)}const/4 {reg}, 0x0\n\n{match.group(0)}'
+    replacement = f'{match.group(1)}const/16 {reg}, 0x0\n\n{match.group(0)}'
     updated = before + '.method static constructor <clinit>()V' + body[:match.start()] + replacement + body[match.end():] + '.end method' + after
     path.write_text(updated, encoding='utf-8')
     return True
