@@ -70,7 +70,7 @@ class TestLegacyLightsEvidence(unittest.TestCase):
         self.assertIn('xxd -p -c 4 "$WORK_DIR/vendor/bin/hw/vendor.samsung.hardware.light-service" | grep "1853$" >/dev/null', section)
         self.assertNotIn('grep -q "1853$"', section)
 
-        emitter = 'import sys;sys.stdout.write("00001853\\n" + "00000000\\n" * 100000)'
+        emitter = 'import sys;sys.stdout.write("00001853\n" + "00000000\n" * 100000)'
         command = "set -o pipefail; python3 -c " + repr(emitter) + " | grep '1853$' >/dev/null"
         result = subprocess.run(["bash", "-c", command], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
