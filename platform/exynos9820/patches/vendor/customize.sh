@@ -63,8 +63,9 @@ if $JSQZ_CREATED; then
     SET_METADATA "vendor" "etc/ueventd.rc" 0 0 644 "u:object_r:vendor_configs_file:s0"
 fi
 
-LOG_STEP_IN "- Adding S21 (p3sxxx) Light HAL"
-ADD_TO_WORK_DIR "p3sxxx" "vendor" "bin/hw/vendor.samsung.hardware.light-service"
-ADD_TO_WORK_DIR "p3sxxx" "vendor" "lib64/android.hardware.light-V1-ndk_platform.so"
-ADD_TO_WORK_DIR "p3sxxx" "vendor" "lib64/vendor.samsung.hardware.light-V1-ndk_platform.so"
-LOG_STEP_OUT
+# The extracted S10 firmware already supplies an AIDL ILights/default service,
+# matching init RC and VINTF fragment. Replacing its hardware-specific binary
+# and libraries with S21 prebuilts is unverified and can break LED/backlight.
+# Fail closed if stock wiring is absent rather than silently importing a donor.
+LOG "- Preserving stock Exynos9820 light HAL"
+python3 "$SRC_DIR/scripts/verify_s10_stock_light_hal.py" "$WORK_DIR"
