@@ -30,11 +30,52 @@ class JsqzUeventdTests(unittest.TestCase):
                 ensure_rule(path)
             self.assertEqual(path.read_text(), content)
 
-    def test_rejects_missing_imported_file(self):
+    def test_creates_imported_file_when_stock_lacks_it(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "vendor" / "etc" / "ueventd.rc"
+            path.parent.mkdir(parents=True)
+            self.assertTrue(ensure_rule(path))
+            self.assertEqual(path.read_text().count("/dev/jsqz"), 1)
+            self.assertFalse(ensure_rule(path))
+
+    def test_preserves_legacy_stock_rules_when_migrating(self):
+        with tempfile.TemporaryDirectory() as temp:
+            vendor = Path(temp) / "vendor"
+            (vendor / "etc").mkdir(parents=True)
+            legacy = vendor / "ueventd.rc"
+            legacy.write_bytes(b"# legacy\r\n/dev/snd/* 0660 system audio\r\n")
+            path = vendor / "etc" / "ueventd.rc"
+            self.assertTrue(ensure_rule(path, legacy))
+            self.assertTrue(path.read_bytes().startswith(legacy.read_bytes()))
+            self.assertTrue(path.read_bytes().endswith(" ".join(RULE).encode() + b"\r\n"))
+            self.assertFalse(ensure_rule(path, legacy))
+
+    def test_rejects_legacy_conflict_without_creating_import(self):
+        with tempfile.TemporaryDirectory() as temp:
+            vendor = Path(temp) / "vendor"
+            (vendor / "etc").mkdir(parents=True)
+            legacy = vendor / "ueventd.rc"
+            legacy.write_text("/dev/jsqz 0666 root root\n")
+            path = vendor / "etc" / "ueventd.rc"
+            with self.assertRaisesRegex(ValueError, "conflicting"):
+                ensure_rule(path, legacy)
+            self.assertFalse(path.exists())
+
+    def test_rejects_missing_vendor_directory(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "vendor" / "etc" / "ueventd.rc"
             with self.assertRaisesRegex(ValueError, "missing"):
                 ensure_rule(path)
+
+    def test_rejects_legacy_symlink(self):
+        with tempfile.TemporaryDirectory() as temp:
+            vendor = Path(temp) / "vendor"
+            (vendor / "etc").mkdir(parents=True)
+            legacy = vendor / "ueventd.rc"
+            legacy.symlink_to("/etc/passwd")
+            path = vendor / "etc" / "ueventd.rc"
+            with self.assertRaisesRegex(ValueError, "unsafe legacy"):
+                ensure_rule(path, legacy)
             self.assertFalse(path.exists())
 
     def test_preserves_crlf_and_existing_comment(self):
@@ -49,7 +90,8 @@ class JsqzUeventdTests(unittest.TestCase):
         source = (Path(__file__).resolve().parents[1] / "platform" / "exynos9820"
                   / "patches" / "vendor" / "customize.sh").read_text()
         self.assertIn("$WORK_DIR/vendor/etc/ueventd.rc", source)
-        self.assertNotIn("$WORK_DIR/vendor/ueventd.rc", source)
+        self.assertIn("$WORK_DIR/vendor/ueventd.rc", source)
+        self.assertIn('SET_METADATA "vendor" "etc/ueventd.rc"', source)
 
     def test_rejects_duplicate_active_rule(self):
         with tempfile.TemporaryDirectory() as temp:
