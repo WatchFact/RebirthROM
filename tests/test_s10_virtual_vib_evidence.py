@@ -99,6 +99,28 @@ class EvidenceTests(unittest.TestCase):
                 self.assertIn(tail, [p.split('/', 1)[1] for p in module.EXTRA_CLASSES])
             self.assertEqual(result.count('Donor class matches: 1'), 2)
 
+    def test_feature_specific_method_is_not_starved_by_generic_vibration_methods(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            path = root / 'smali/com/android/server/vibrator/Test.smali'
+            path.parent.mkdir(parents=True)
+            methods = []
+            for i in range(50):
+                body = '    const-string v0, "vibration"\\n'
+                if i == 49:
+                    body += ('    invoke-static {}, '
+                             'Lcom/android/server/vibrator/VirtualVibSoundHelper;->start()V\\n')
+                methods.append(f'.method public f{i}()V\\n' + body +
+                               '    return-void\\n.end method\\n')
+            path.write_text('.class public LTest;\\n' +
+                            '# filler\\n' * (module.MAX_FULL_CLASS_LINES + 1) +
+                            ''.join(methods))
+            report = module.capture(root, PATCH)
+            self.assertIn('Large class', report)
+            self.assertIn('.method public f49()V', report)
+            self.assertIn('VirtualVibSoundHelper;->start()V', report)
+            self.assertNotIn('Class output truncated', report)
+
     def test_large_donor_capture_budget_includes_multiple_methods(self):
         self.assertGreaterEqual(module.MAX_METHODS, 18)
         self.assertGreaterEqual(module.MAX_TOTAL_LINES, 50000)

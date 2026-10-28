@@ -18,9 +18,23 @@ KEYWORDS = (
 )
 MAX_FULL_CLASS_LINES = 1800
 MAX_METHOD_LINES = 1700
-MAX_METHODS = 18
-MAX_CLASS_OUTPUT_LINES = 9500
-MAX_TOTAL_LINES = 50000
+# Android 16 donor classes can have more than 100 generic vibration methods.
+# Preserve enough evidence for feature-specific call sites without truncating
+# them behind unrelated vibration handlers.
+MAX_METHODS = 32
+MAX_CLASS_OUTPUT_LINES = 20000
+MAX_TOTAL_LINES = 75000
+PRIORITY_TERMS = (
+    ('virtualvib', 100),
+    ('onlywatchconnected', 80),
+    ('issamsungwatch', 80),
+    ('onsetbtscoactivedevice', 60),
+    ('onupdatecommunicationrouteclient', 60),
+    ('onexternalvibrationstart', 60),
+    ('goodcatch', 40),
+    ('samsungbroadcastreceiver', 40),
+)
+
 # These classes are removed by the legacy patch but are not listed in its
 # diff. Capture their real donor definitions before considering a rebase.
 EXTRA_CLASSES = (
@@ -91,9 +105,12 @@ def capture(decoded: Path, patch: str) -> str:
                 ranked = []
                 for start, end in methods:
                     signature = lines[start].lower()
-                    body = lines[start:end]
+                    body = '\\n'.join(lines[start:end]).lower()
                     score = sum(8 for word in KEYWORDS if word in signature)
-                    score += sum(1 for word in KEYWORDS if any(word in line.lower() for line in body))
+                    score += sum(1 for word in KEYWORDS if word in body)
+                    # Exact virtual-vibration and patch-touched entry points
+                    # outrank generic methods that merely mention vibration.
+                    score += sum(weight for word, weight in PRIORITY_TERMS if word in body)
                     if score:
                         ranked.append((-score, start, end))
                 ranked.sort()
