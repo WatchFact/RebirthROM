@@ -50,7 +50,9 @@ LOG "- Fixing SNAP AIDL SELinux rule"
 sed -i "s/(allow snap_hidl hal_snap_service (service_manager (find)))/(allow snap_hidl hal_snap_service (service_manager (add find)))/g" "$WORK_DIR/vendor/etc/selinux/vendor_sepolicy.cil"
 
 LOG "- Fixing JSQZ node permission"
-echo "/dev/jsqz                 0660   mediacodec     camera" >> $WORK_DIR/vendor/ueventd.rc
+# Android 16 imports /vendor/etc/ueventd.rc, not /vendor/ueventd.rc.
+# Reject missing or conflicting stock rules instead of creating an ignored file.
+python3 "$SRC_DIR/scripts/ensure_s10_jsqz_ueventd.py" "$WORK_DIR/vendor/etc/ueventd.rc"
 
 LOG_STEP_IN "- Adding S21 (p3sxxx) Light HAL"
 ADD_TO_WORK_DIR "p3sxxx" "vendor" "bin/hw/vendor.samsung.hardware.light-service"
