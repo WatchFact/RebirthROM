@@ -102,10 +102,17 @@ class WorkDirectoryCacheTests(unittest.TestCase):
                                     capture_output=True, text=True)
             self.assertNotEqual(result.returncode, 0)
 
+    def test_compile_workflow_runs_script_without_executable_bit(self):
+        # GitHub Contents updates can remove executable mode. The workflow
+        # must not depend on make_rom.sh being marked executable.
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/compile-s10.yml").read_text()
+        self.assertIn("bash ./scripts/make_rom.sh --force --no-rom-zip", workflow)
+
     def test_completed_marker_requires_valid_input_digest(self):
         # Execute the real completion-marker block in isolation. In particular,
         # command substitution inside echo previously masked a hash failure.
-        marker_start = "    # A completed work tree must have a verified input hash."
+        marker_start = "    # A completed work tree must have a verified input hash. A failed or"
         marker_block = SOURCE.split(marker_start, 1)[1].split(
             "\nfi\n\nif $BUILD_ZIP", 1)[0]
         with tempfile.TemporaryDirectory() as temp:

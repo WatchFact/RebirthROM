@@ -123,7 +123,7 @@ jobs:
           # The upstream buildenv uses optional unset variables; do not use nounset.
           set -eo pipefail
           source ./buildenv.sh beyond2lte
-          ./scripts/make_rom.sh --force --no-rom-zip
+          bash ./scripts/make_rom.sh --force --no-rom-zip
           test -s "$WORK_DIR/.completed"
           test -s "$WORK_DIR/system/system/build.prop"
           test -s "$WORK_DIR/vendor/build.prop"
