@@ -40,16 +40,9 @@ LOG_STEP_OUT
 # For some reason we are missing 2 permissions here: android.hardware.security.model.compatible and android.software.controls
 # First one is related to encryption and second one to SmartThings Device Control
 LOG "- Patching vendor permissions"
-sed -i '$d' "$WORK_DIR/vendor/etc/permissions/handheld_core_hardware.xml"
-{
-    echo ""
-    echo "    <!-- Indicate support for the Android security model per the CDD. -->"
-    echo "    <feature name=\"android.hardware.security.model.compatible\"/>"
-    echo ""
-    echo "    <!--  Feature to specify if the device supports controls.  -->"
-    echo "    <feature name=\"android.software.controls\"/>"
-    echo "</permissions>"
-} >> "$WORK_DIR/vendor/etc/permissions/handheld_core_hardware.xml"
+# Preserve the donor XML and validate it before adding any missing features.
+# Never assume the last line is the closing </permissions> tag.
+python3 "$SRC_DIR/scripts/ensure_s10_vendor_permissions.py" "$WORK_DIR/vendor/etc/permissions/handheld_core_hardware.xml"
 
 LOG_STEP_IN "- Setting stock Bluetooth profiles" # from M625F 13
 SET_PROP "product" "bluetooth.profile.asha.central.enabled" "true"
