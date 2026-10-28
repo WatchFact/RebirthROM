@@ -93,6 +93,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_s10_work_dir_cache.py' -v
           python3 -m unittest discover -s tests -p 'test_s10_vendor_permissions.py' -v
           python3 -m unittest discover -s tests -p 'test_s10_jsqz_ueventd.py' -v
+          python3 -m unittest discover -s tests -p 'test_s10_light_hal_evidence.py' -v
           python3 -m unittest discover -s tests -p 'test_backport_s10_face_hidl.py' -v
           grep -q -- '--no-rom-zip' .github/workflows/compile-s10.yml
 
