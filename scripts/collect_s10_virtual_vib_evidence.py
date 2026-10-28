@@ -26,8 +26,8 @@ MAX_TOTAL_LINES = 50000
 EXTRA_CLASSES = (
     'smali_classes2/com/android/server/vibrator/VirtualVibSoundHelper.smali',
     'smali_classes2/com/android/server/vibrator/VibratorManagerInternal.smali',
-    'smali_classes2/com/android/server/vibrator/VibratorManagerService$SamsungBroadcastReceiver$ExternalSyntheticLambda1.smali',
-    'smali/com/android/server/audio/BtHelper$ExternalSyntheticLambda0.smali',
+    'smali_classes2/com/android/server/vibrator/VibratorManagerService$SamsungBroadcastReceiver$$ExternalSyntheticLambda1.smali',
+    'smali/com/android/server/audio/BtHelper$$ExternalSyntheticLambda0.smali',
 )
 
 
