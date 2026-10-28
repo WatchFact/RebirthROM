@@ -24,6 +24,10 @@ MAX_METHOD_LINES = 1700
 MAX_METHODS = 32
 MAX_CLASS_OUTPUT_LINES = 20000
 MAX_TOTAL_LINES = 75000
+# Complete donor classes are required to rebase register and control-flow changes.
+# Unlike the bounded overview, full evidence must fail rather than truncate.
+MAX_REBASE_CLASS_LINES = 30000
+MAX_REBASE_TOTAL_LINES = 150000
 PRIORITY_TERMS = (
     ('virtualvib', 100),
     ('onlywatchconnected', 80),
@@ -77,7 +81,7 @@ def method_ranges(lines: list[str]) -> list[tuple[int, int]]:
     return methods
 
 
-def capture(decoded: Path, patch: str) -> str:
+def capture(decoded: Path, patch: str, *, full_classes: bool = False) -> str:
     if not decoded.is_dir():
         raise ValueError(f'decoded services.jar directory missing: {decoded}')
     output = [
@@ -96,7 +100,12 @@ def capture(decoded: Path, patch: str) -> str:
             lines = path.read_text(encoding='utf-8', errors='replace').splitlines()
             section.extend([f'Actual path: {path.relative_to(decoded)}', f'Donor lines: {len(lines)}'])
             methods = method_ranges(lines)
-            if len(lines) <= MAX_FULL_CLASS_LINES:
+            if full_classes:
+                if len(lines) > MAX_REBASE_CLASS_LINES:
+                    raise ValueError(f'full donor class exceeds {MAX_REBASE_CLASS_LINES} lines: {rel}')
+                section.append('Complete donor class for exact rebase (read-only):')
+                section.extend(f'{i + 1}: {line}' for i, line in enumerate(lines))
+            elif len(lines) <= MAX_FULL_CLASS_LINES:
                 section.append('Complete class (bounded):')
                 section.extend(f'{i + 1}: {line}' for i, line in enumerate(lines))
             else:
@@ -124,6 +133,11 @@ def capture(decoded: Path, patch: str) -> str:
                         section.extend(f'{i + 1}: {lines[i]}' for i in range(start, min(start + 180, end)))
                         section.append('... omitted method middle ...')
                         section.extend(f'{i + 1}: {lines[i]}' for i in range(max(start + 180, end - 180), end))
+        if full_classes:
+            if len(output) + len(section) > MAX_REBASE_TOTAL_LINES:
+                raise ValueError('full donor evidence exceeds total line limit; no partial report written')
+            output.extend(section)
+            continue
         if len(section) > MAX_CLASS_OUTPUT_LINES:
             section = section[:MAX_CLASS_OUTPUT_LINES] + ['Class output truncated; full donor evidence required before rebase.']
         if len(output) + len(section) > MAX_TOTAL_LINES:
@@ -138,9 +152,12 @@ def main() -> int:
     parser.add_argument('decoded_services', type=Path)
     parser.add_argument('patch', type=Path)
     parser.add_argument('output', type=Path)
+    parser.add_argument('--full-classes', action='store_true',
+                        help='capture complete donor classes; fail closed on evidence size limits')
     args = parser.parse_args()
     try:
-        result = capture(args.decoded_services, args.patch.read_text(encoding='utf-8'))
+        result = capture(args.decoded_services, args.patch.read_text(encoding='utf-8'),
+                         full_classes=args.full_classes)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(result, encoding='utf-8')
     except (OSError, ValueError) as exc:

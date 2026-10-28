@@ -121,6 +121,34 @@ class EvidenceTests(unittest.TestCase):
             self.assertIn('VirtualVibSoundHelper;->start()V', report)
             self.assertNotIn('Class output truncated', report)
 
+    def test_full_classes_mode_keeps_unrelated_methods_for_rebase(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            file = root / 'smali_classes3/com/android/server/vibrator/Test.smali'
+            file.parent.mkdir(parents=True)
+            content = ('.class public LTest;\n' +
+                       '# filler\n' * (module.MAX_FULL_CLASS_LINES + 1) +
+                       '.method public unrelatedButNeeded()V\n'
+                       '    return-void\n.end method\n')
+            file.write_text(content)
+            bounded = module.capture(root, PATCH)
+            self.assertNotIn('unrelatedButNeeded', bounded)
+            complete = module.capture(root, PATCH, full_classes=True)
+            self.assertIn('Complete donor class for exact rebase', complete)
+            self.assertIn('unrelatedButNeeded', complete)
+            self.assertNotIn('... omitted method middle ...', complete)
+            self.assertEqual(file.read_text(), content)
+
+    def test_full_classes_mode_refuses_truncated_evidence(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            file = root / 'smali/com/android/server/vibrator/Test.smali'
+            file.parent.mkdir(parents=True)
+            file.write_text('.class public LTest;\n' +
+                            '# filler\n' * (module.MAX_REBASE_CLASS_LINES + 1))
+            with self.assertRaisesRegex(ValueError, 'full donor class exceeds'):
+                module.capture(root, PATCH, full_classes=True)
+
     def test_large_donor_capture_budget_includes_multiple_methods(self):
         self.assertGreaterEqual(module.MAX_METHODS, 18)
         self.assertGreaterEqual(module.MAX_TOTAL_LINES, 50000)

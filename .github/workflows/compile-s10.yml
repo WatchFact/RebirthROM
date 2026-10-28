@@ -163,11 +163,11 @@ jobs:
             python3 scripts/collect_s10_face_evidence.py "$FACE_JAR" "$FACE_PATCH" compile-report/face/donor-smali-excerpts.txt --full-classes
           fi
           # Virtual-vibration disablement currently fails on donor-specific
-          # audio/vibrator smali. Collect bounded real class/method evidence;
-          # never bypass or partially apply the incompatible patch.
+          # audio/vibrator smali. Capture complete donor classes for a safe
+          # behavior-preserving rebase; never apply partial patch hunks.
           VIB_PATCH=unica/patches/product_feature/audio/virtual_vib/services.jar/0001-Disable-virtual-vibration-support.patch
           if [[ ! -s out/target/beyond2lte/work_dir/.completed && -d "$FACE_JAR" ]]; then
-            if ! python3 scripts/collect_s10_virtual_vib_evidence.py "$FACE_JAR" "$VIB_PATCH" compile-report/vibration/donor-smali-excerpts.txt; then
+            if ! python3 scripts/collect_s10_virtual_vib_evidence.py "$FACE_JAR" "$VIB_PATCH" compile-report/vibration/donor-smali-excerpts.txt --full-classes; then
               echo "::warning::Virtual-vibration donor evidence capture failed"
             fi
           fi
