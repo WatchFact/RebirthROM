@@ -37,6 +37,7 @@ class S10VirtualVibrationTests(unittest.TestCase):
         self.reader = self.root / 'smali_classes2/com/android/server/vibrator/Callback.smali'
         self.manager.parent.mkdir(parents=True)
         self.manager.write_text('.class public Lcom/android/server/vibrator/VibratorManagerService;\n'
+                                + '.field public mVirtualVibSoundHelper:Lcom/android/server/vibrator/VirtualVibSoundHelper;\n'
                                 + ORIGINAL + '\n')
         self.reader.write_text('.method public run()V\n    .locals 1\n'
                                + READ + '    :cond_0\n    return-void\n.end method\n')
@@ -86,6 +87,15 @@ class S10VirtualVibrationTests(unittest.TestCase):
                                '\n    sput-object v0, ' + mod.FIELD + '\n')
         before = self.manager.read_text()
         with self.assertRaisesRegex(ValueError, 'unrecognized virtual-vibration field access'):
+            mod.disable(self.root)
+        self.assertEqual(self.manager.read_text(), before)
+
+    def test_missing_field_declaration_rejected(self):
+        before = self.manager.read_text().replace(
+            '.field public mVirtualVibSoundHelper:Lcom/android/server/vibrator/VirtualVibSoundHelper;',
+            '')
+        self.manager.write_text(before)
+        with self.assertRaisesRegex(ValueError, 'missing or duplicate virtual-vibration helper field'):
             mod.disable(self.root)
         self.assertEqual(self.manager.read_text(), before)
 
