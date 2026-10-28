@@ -58,5 +58,63 @@ class LightEvidenceTests(unittest.TestCase):
         self.assertIn("out/target/beyond2lte/work_dir", workflow)
 
 
+    def test_reports_actual_aidl_manifest_and_init_interface(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            init = root / "vendor/etc/init/lights-default-sec.rc"
+            init.parent.mkdir(parents=True)
+            init.write_text(
+                "service vendor.samsung.hardware.light-default "
+                "/vendor/bin/hw/vendor.samsung.hardware.light-service\\n"
+                "    class hal\\n"
+                "    interface aidl android.hardware.light.ILights/default\\n"
+            )
+            manifest = root / "vendor/etc/vintf/manifest/lights-default-sec.xml"
+            manifest.parent.mkdir(parents=True)
+            manifest.write_text(
+                '<manifest version="1.0" type="device">'
+                '<hal format="aidl"><name>android.hardware.light</name>'
+                '<version>1</version><interface><name>ILights</name>'
+                '<instance>default</instance></interface></hal></manifest>'
+            )
+            result = inspect_root(root)
+            self.assertEqual(result["hal_declarations"][0]["format"], "aidl")
+            self.assertEqual(result["hal_declarations"][0]["versions"], ["1"])
+            self.assertEqual(result["hal_declarations"][0]["interfaces"],
+                             [{"name": "ILights", "instances": ["default"]}])
+            self.assertEqual(result["init_services"][0]["name"],
+                             "vendor.samsung.hardware.light-default")
+            self.assertEqual(result["init_services"][0]["interfaces"],
+                             ["aidl android.hardware.light.ILights/default"])
+            self.assertEqual(result["parse_errors"], [])
+
+    def test_reports_hidl_manifest_without_guessing_aidl(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest = root / "vendor/etc/vintf/manifest/lights.xml"
+            manifest.parent.mkdir(parents=True)
+            manifest.write_text(
+                '<manifest version="1.0" type="device">'
+                '<hal format="hidl"><name>android.hardware.light</name>'
+                '<transport>hwbinder</transport><version>2.0</version>'
+                '<interface><name>ILight</name><instance>default</instance>'
+                '</interface></hal></manifest>'
+            )
+            result = inspect_root(root)
+            self.assertEqual(result["hal_declarations"][0]["format"], "hidl")
+            self.assertEqual(result["hal_declarations"][0]["transport"], ["hwbinder"])
+
+    def test_invalid_vintf_xml_is_reported_without_crashing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest = root / "vendor/etc/vintf/manifest/lights.xml"
+            manifest.parent.mkdir(parents=True)
+            manifest.write_text("<manifest><hal><name>android.hardware.light</name>")
+            result = inspect_root(root)
+            self.assertEqual(result["hal_declarations"], [])
+            self.assertEqual(len(result["parse_errors"]), 1)
+            self.assertIn("ParseError", result["parse_errors"][0]["error"])
+
+
 if __name__ == "__main__":
     unittest.main()
