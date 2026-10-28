@@ -59,8 +59,8 @@ class TestLegacyLightsEvidence(unittest.TestCase):
             capture(self.root, PATCH)
 
     def test_light_hal_signature_probe_is_pipefail_safe(self):
-        # An early grep -q exit can SIGPIPE the hex producer and make a
-        # successful match look like a failure when pipefail is active.
+        # grep -q can SIGPIPE the hex producer and make a valid match
+        # appear absent when the shell enables pipefail.
         import subprocess
 
         customize = (Path(__file__).resolve().parents[1] /
@@ -71,18 +71,7 @@ class TestLegacyLightsEvidence(unittest.TestCase):
         self.assertNotIn('grep -q "1853$"', section)
 
         emitter = 'import sys;sys.stdout.write("00001853\\n" + "00000000\\n" * 100000)'
-        command = "set -o pipefail; python3 -c " + repr(emitter) + " | grep '1853
-        patch = (Path(__file__).resolve().parents[1] /
-                 "unica/patches/legacy/lights/services.jar/0001-Backport-legacy-SehLights-HAL-code.patch")
-        names = patch_classes(patch.read_text(encoding="utf-8"))
-        self.assertEqual(len(names), 4)
-        self.assertTrue(any("LightsService$LightImpl" in name for name in names))
-        self.assertTrue(any("PowerManagerUtil" in name for name in names))
-
-
-if __name__ == "__main__":
-    unittest.main()
- >/dev/null"
+        command = "set -o pipefail; python3 -c " + repr(emitter) + " | grep '1853$' >/dev/null"
         result = subprocess.run(["bash", "-c", command], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
 
