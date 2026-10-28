@@ -14,7 +14,7 @@ diff --git a/smali_classes2/com/android/server/power/PowerManagerUtil.smali b/sm
 diff --git a/smali/com/android/server/display/LocalDisplayAdapter$BacklightAdapter.smali b/smali/com/android/server/display/LocalDisplayAdapter$BacklightAdapter.smali
 diff --git a/smali_classes2/vendor/samsung/hardware/light/ISehLights$Stub$Proxy.smali b/smali_classes2/vendor/samsung/hardware/light/ISehLights$Stub$Proxy.smali
 """
-BODY = ".class public Ltest/Donor;\\n.method public example()V\\n    .locals 0\\n    return-void\\n.end method\\n"
+BODY = ".class public Ltest/Donor;\n.method public example()V\n    .locals 0\n    return-void\n.end method\n"
 
 
 class TestLegacyLightsEvidence(unittest.TestCase):
@@ -54,7 +54,7 @@ class TestLegacyLightsEvidence(unittest.TestCase):
             capture(self.root, PATCH)
 
     def test_unterminated_method_fails_closed(self):
-        (self.root / self.classes[0]).write_text(".method public broken()V\\n", encoding="utf-8")
+        (self.root / self.classes[0]).write_text(".method public broken()V\n", encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "unterminated"):
             capture(self.root, PATCH)
 

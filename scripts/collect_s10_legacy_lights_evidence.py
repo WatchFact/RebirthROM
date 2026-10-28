@@ -34,13 +34,13 @@ def capture(decoded: Path, patch: str) -> str:
         if len(lines) > MAX_CLASS_LINES:
             raise ValueError(f"donor class exceeds {MAX_CLASS_LINES} lines: {rel}")
         method_ranges(lines)
-        section = [f"\\n## {rel}", f"Actual path: {path.relative_to(decoded)}",
+        section = [f"\n## {rel}", f"Actual path: {path.relative_to(decoded)}",
                    f"Complete donor lines: {len(lines)}"]
         section.extend(f"{i}: {line}" for i, line in enumerate(lines, 1))
         if len(output) + len(section) > MAX_TOTAL_LINES:
             raise ValueError("complete light donor evidence exceeds total line limit")
         output.extend(section)
-    return "\\n".join(output) + "\\n"
+    return "\n".join(output) + "\n"
 
 
 def main() -> int:
@@ -54,7 +54,7 @@ def main() -> int:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(result, encoding="utf-8")
     except (OSError, UnicodeError, ValueError) as exc:
-        parser.exit(1, f"Cannot collect complete legacy light donor evidence: {exc}\\n")
+        parser.exit(1, f"Cannot collect complete legacy light donor evidence: {exc}\n")
     return 0
 
 
