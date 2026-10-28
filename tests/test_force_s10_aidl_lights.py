@@ -73,23 +73,23 @@ class TestS10AidlLights(unittest.TestCase):
 
     def test_overwritten_zero_load_is_not_mistaken_for_idempotency(self):
         source = self.power.read_text().replace(
-            '    :goto_1c\\n',
-            '    const/16 v16, 0x0\\n    move/from16 v16, v3\\n    :goto_1c\\n')
+            '    :goto_1c\n',
+            '    const/16 v16, 0x0\n    move/from16 v16, v3\n    :goto_1c\n')
         self.power.write_text(source)
         self.assertTrue(MOD.patch(self.root))
-        self.assertIn('    :goto_1c\\n    const/16 v16, 0x0\\n\\n    sput-boolean v16, ', self.power.read_text())
+        self.assertIn('    :goto_1c\n    const/16 v16, 0x0\n\n    sput-boolean v16, ', self.power.read_text())
         self.assertFalse(MOD.patch(self.root))
 
     def test_zero_load_before_other_instruction_is_not_idempotent(self):
         source = self.power.read_text().replace(
-            '    :goto_1c\\n', '    :goto_1c\\n    const/16 v16, 0x0\\n    nop\\n')
+            '    :goto_1c\n', '    :goto_1c\n    const/16 v16, 0x0\n    nop\n')
         self.power.write_text(source)
         self.assertTrue(MOD.patch(self.root))
-        self.assertIn('    nop\\n    const/16 v16, 0x0\\n\\n    sput-boolean', self.power.read_text())
+        self.assertIn('    nop\n    const/16 v16, 0x0\n\n    sput-boolean', self.power.read_text())
 
     def test_immediate_zero_load_with_comments_is_idempotent(self):
         source = self.power.read_text().replace(
-            '    :goto_1c\\n', '    :goto_1c\\n    const/16 v16, 0x0\\n    # native S10 HAL\\n\\n')
+            '    :goto_1c\n', '    :goto_1c\n    const/16 v16, 0x0\n    # native S10 HAL\n\n')
         self.power.write_text(source)
         self.assertFalse(MOD.patch(self.root))
         self.assertEqual(self.power.read_text(), source)
