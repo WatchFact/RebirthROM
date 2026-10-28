@@ -76,6 +76,29 @@ class EvidenceTests(unittest.TestCase):
             self.assertIn('stopVirtualSound', result)
             self.assertEqual(helper.read_text(), original)
 
+    def test_synthetic_lambda_names_match_real_smali_descriptors(self):
+        # D8 synthetic class names use a literal double-dollar separator.
+        # A single dollar silently misreports the real donor as missing.
+        targets = (
+            ('com/android/server/audio/BtHelper$ExternalSyntheticLambda0.smali',
+             'smali_classes3'),
+            ('com/android/server/vibrator/'
+             'VibratorManagerService$SamsungBroadcastReceiver$ExternalSyntheticLambda1.smali',
+             'smali_classes4'),
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for tail, dex in targets:
+                path = root / dex / tail
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text('.class public LTest;\\n')
+            result = module.capture(root, PATCH)
+            for tail, dex in targets:
+                self.assertIn(f'## smali', result)
+                self.assertIn(f'Actual path: {dex}/{tail}', result)
+                self.assertIn(tail, [p.split('/', 1)[1] for p in module.EXTRA_CLASSES])
+            self.assertEqual(result.count('Donor class matches: 1'), 2)
+
     def test_large_donor_capture_budget_includes_multiple_methods(self):
         self.assertGreaterEqual(module.MAX_METHODS, 18)
         self.assertGreaterEqual(module.MAX_TOTAL_LINES, 50000)
