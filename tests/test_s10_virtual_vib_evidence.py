@@ -106,14 +106,14 @@ class EvidenceTests(unittest.TestCase):
             path.parent.mkdir(parents=True)
             methods = []
             for i in range(50):
-                body = '    const-string v0, "vibration"\\n'
+                body = '    const-string v0, "vibration"\n'
                 if i == 49:
                     body += ('    invoke-static {}, '
-                             'Lcom/android/server/vibrator/VirtualVibSoundHelper;->start()V\\n')
-                methods.append(f'.method public f{i}()V\\n' + body +
-                               '    return-void\\n.end method\\n')
-            path.write_text('.class public LTest;\\n' +
-                            '# filler\\n' * (module.MAX_FULL_CLASS_LINES + 1) +
+                             'Lcom/android/server/vibrator/VirtualVibSoundHelper;->start()V\n')
+                methods.append(f'.method public f{i}()V\n' + body +
+                               '    return-void\n.end method\n')
+            path.write_text('.class public LTest;\n' +
+                            '# filler\n' * (module.MAX_FULL_CLASS_LINES + 1) +
                             ''.join(methods))
             report = module.capture(root, PATCH)
             self.assertIn('Large class', report)

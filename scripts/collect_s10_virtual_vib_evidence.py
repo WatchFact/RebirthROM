@@ -105,7 +105,7 @@ def capture(decoded: Path, patch: str) -> str:
                 ranked = []
                 for start, end in methods:
                     signature = lines[start].lower()
-                    body = '\\n'.join(lines[start:end]).lower()
+                    body = '\n'.join(lines[start:end]).lower()
                     score = sum(8 for word in KEYWORDS if word in signature)
                     score += sum(1 for word in KEYWORDS if word in body)
                     # Exact virtual-vibration and patch-touched entry points
