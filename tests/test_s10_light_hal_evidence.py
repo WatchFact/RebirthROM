@@ -65,9 +65,9 @@ class LightEvidenceTests(unittest.TestCase):
             init.parent.mkdir(parents=True)
             init.write_text(
                 "service vendor.samsung.hardware.light-default "
-                "/vendor/bin/hw/vendor.samsung.hardware.light-service\\n"
-                "    class hal\\n"
-                "    interface aidl android.hardware.light.ILights/default\\n"
+                "/vendor/bin/hw/vendor.samsung.hardware.light-service\n"
+                "    class hal\n"
+                "    interface aidl android.hardware.light.ILights/default\n"
             )
             manifest = root / "vendor/etc/vintf/manifest/lights-default-sec.xml"
             manifest.parent.mkdir(parents=True)
