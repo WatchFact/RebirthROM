@@ -225,13 +225,28 @@ if [ "$TARGET_PLATFORM_SDK_VERSION" -lt "34" ]; then
     fi
 fi
 
-# Support legacy SehLights HAL (pre-API 35)
-# - Check for [lsr wD, wS, #0x18] to determine if the newer HAL is already in place
+# The S10 stock firmware declares android.hardware.light ILights/default (AIDL),
+# with a matching native executable and init service. Android 16's framework
+# chooses either that standard AIDL HAL or Samsung's proprietary SehLights
+# extension based on SEC_FEATURE_USE_LIGHTS_HAL_EXTENSION. Selecting SehLights
+# for an AIDL-only S10 leaves the native service unused.
+#
+# Keep the legacy vendor-extension patch for other old devices, but select the
+# inspected Android 16 AIDL path for Exynos9820. The stock HAL's init/VINTF
+# wiring is validated earlier by the platform vendor module. Fail closed if
+# the donor framework no longer matches the inspected class layout.
 if [ "$TARGET_PLATFORM_SDK_VERSION" -lt "35" ]; then
-    # Do not use grep -q here: it can SIGPIPE xxd and turn a matching
-    # signature into a false negative when pipefail is enabled.
-    if [ -f "$WORK_DIR/vendor/bin/hw/vendor.samsung.hardware.light-service" ] && \
+    if [[ "$TARGET_PLATFORM" == "exynos9820" ]]; then
+        PATCHED=true
+        DECODE_APK "system" "system/framework/services.jar" || return 1
+        if ! python3 "$SRC_DIR/scripts/force_s10_aidl_lights.py" \
+                "$APKTOOL_DIR/system/framework/services.jar"; then
+            ABORT "S10 stock AIDL light HAL cannot be selected in this donor framework"
+            return 1
+        fi
+    elif [ -f "$WORK_DIR/vendor/bin/hw/vendor.samsung.hardware.light-service" ] && \
             ! xxd -p -c 4 "$WORK_DIR/vendor/bin/hw/vendor.samsung.hardware.light-service" | grep "1853$" >/dev/null; then
+        # grep -q can SIGPIPE xxd under pipefail; consume the full stream.
         PATCHED=true
         APPLY_PATCH "system" "system/framework/services.jar" \
             "$MODPATH/lights/services.jar/0001-Backport-legacy-SehLights-HAL-code.patch"
