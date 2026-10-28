@@ -64,7 +64,7 @@ def _light_init_services(lines: list[str]) -> list[dict]:
     services = []
     current = None
     for line in lines:
-        service = re.match(r"^\\s*service\\s+(\\S+)\\s+(\\S+)", line)
+        service = re.match(r"^\s*service\s+(\S+)\s+(\S+)", line)
         if service:
             current = None
             if PATTERN.search(line):
@@ -73,7 +73,7 @@ def _light_init_services(lines: list[str]) -> list[dict]:
                 services.append(current)
             continue
         if current:
-            interface = re.match(r"^\\s*interface\\s+(.+?)\\s*$", line)
+            interface = re.match(r"^\s*interface\s+(.+?)\s*$", line)
             if interface:
                 current["interfaces"].append(interface.group(1))
     return services
