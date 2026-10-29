@@ -2,6 +2,8 @@
 # Keep diagnostic-only RefreshRateConfig.dump patches optional on Android 16.
 # The target's refresh-rate runtime configuration is patched separately.
 source "$SRC_DIR/scripts/internal/patch_refresh_rate_dump.sh"
+# Android 16 relocated GameManager's VRR method; retain runtime HFR patch.
+source "$SRC_DIR/scripts/internal/patch_s10_game_hfr_mode.sh"
 
 GET_FINGERPRINT_SENSOR_TYPE()
 {
@@ -707,9 +709,7 @@ if ! $PRESERVE_NATIVE_DISPLAY_STACK && [[ "$SOURCE_LCD_CONFIG_HFR_MODE" != "$TAR
         "<clinit>()V" \
         "$SOURCE_LCD_CONFIG_HFR_MODE" \
         "$TARGET_LCD_CONFIG_HFR_MODE"
-    SMALI_PATCH "system" "system/framework/gamemanager.jar" \
-        "smali/com/samsung/android/game/GameManagerService.smali" "replace" \
-        "isVariableRefreshRateSupported()Ljava/lang/String;" \
+    PATCH_S10_GAME_HFR_MODE \
         "$SOURCE_LCD_CONFIG_HFR_MODE" \
         "$TARGET_LCD_CONFIG_HFR_MODE"
     SMALI_PATCH "system" "system/framework/secinputdev-service.jar" \
