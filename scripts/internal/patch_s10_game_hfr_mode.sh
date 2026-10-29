@@ -13,6 +13,10 @@ PATCH_S10_GAME_HFR_MODE()
     local VRR_FILE="$APKTOOL_DIR/system/framework/gamemanager.jar/$VRR_REL"
 
     if [[ "$TARGET_PLATFORM" == "exynos9820" && "${SOURCE_PLATFORM_SDK_VERSION:-0}" -ge 36 ]]; then
+        # SMALI_PATCH decodes the JAR itself, but these preflight class checks
+        # run before SMALI_PATCH. Decode first to avoid a false missing-class
+        # abort on a fresh compilation work directory.
+        DECODE_APK "system" "$JAR" || return 1
         if [[ ! -f "$CLASS_FILE" ]] || \
                 ! grep -Eq '^[[:space:]]*\.class[[:space:]].*Lcom/samsung/android/game/GameManagerService;$' "$CLASS_FILE"; then
             ABORT "Missing or incompatible GameManagerService donor class: $CLASS_FILE"
