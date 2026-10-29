@@ -192,6 +192,21 @@ jobs:
             done
           fi
 
+          # The Android 16 donor's MobileAP 11ax patch rejected three real
+          # semwifi-service.jar smali hunks in compilation #80. Preserve the
+          # complete affected donor classes for a controlled compatibility
+          # rebase. Do not bypass the hotspot capability patch or assume
+          # that S10+ supports Wi-Fi 6 hotspot mode.
+          WIFI_JAR=out/target/beyond2lte/apktool/system/framework/semwifi-service.jar
+          WIFI_11AX_PATCH=unica/patches/product_feature/wifi/80211ax/semwifi-service.jar/0001-Disable-MOBILEAP_11AX-support.patch
+          if [[ ! -s out/target/beyond2lte/work_dir/.completed && -d "$WIFI_JAR" ]]; then
+            if ! python3 scripts/collect_s10_settings_vib_evidence.py \
+                "$WIFI_JAR" "$WIFI_11AX_PATCH" \
+                compile-report/wifi/semwifi-11ax-donor-smali.txt; then
+              echo "::warning::Complete Android 16 MobileAP 11ax donor evidence unavailable"
+            fi
+          fi
+
           # Virtual-vibration disablement currently fails on donor-specific
           # audio/vibrator smali. Capture complete donor classes for a safe
           # behavior-preserving rebase; never apply partial patch hunks.
