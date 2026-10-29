@@ -85,6 +85,7 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_smali_patch_remap.py' -v
           python3 -m unittest discover -s tests -p 'test_s10_settings_vib_evidence.py' -v
+          python3 -m unittest discover -s tests -p 'test_disable_s10_settings_virtual_vibration.py' -v
           python3 -m unittest discover -s tests -p 'test_s10_camera_evidence.py' -v
           python3 -m unittest discover -s tests -p 'test_s10_scene_bridge.py' -v
           python3 -m unittest discover -s tests -p 'test_s10_legacy_camera_guard.py' -v

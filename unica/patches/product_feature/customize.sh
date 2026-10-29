@@ -192,9 +192,15 @@ if $SOURCE_AUDIO_SUPPORT_VIRTUAL_VIBRATION_SOUND; then
                 "smali_classes2/com/android/server/vibrator/VirtualVibSoundHelper.smali" "remove"
         fi
         if [[ "$TARGET_PLATFORM" == "exynos9820" && "$SOURCE_PLATFORM_SDK_VERSION" -ge 36 ]]; then
-            APPLY_S10_VIBRATION_APK_PATCH \
-                "system/priv-app/SecSettings/SecSettings.apk" \
-                "$MODPATH/audio/virtual_vib/SecSettings.apk/0001-Disable-virtual-vibration-support.patch" || return 1
+            # Android 16 SecSettings donor bytecode is incompatible with the
+            # legacy four-class patch. Adapt only the optional feature using
+            # the captured donor methods; reject unknown layouts.
+            DECODE_APK "system" "system/priv-app/SecSettings/SecSettings.apk" || return 1
+            if ! python3 "$SRC_DIR/scripts/disable_s10_settings_virtual_vibration.py" \
+                    "$APKTOOL_DIR/system/priv-app/SecSettings/SecSettings.apk"; then
+                ABORT "S10 Android 16 SecSettings virtual-vibration adaptation rejected donor"
+                return 1
+            fi
             APPLY_S10_VIBRATION_APK_PATCH \
                 "system/priv-app/SettingsProvider/SettingsProvider.apk" \
                 "$MODPATH/audio/virtual_vib/SettingsProvider.apk/0001-Disable-virtual-vibration-support.patch" || return 1
