@@ -1329,8 +1329,18 @@ if $SOURCE_WLAN_SUPPORT_MOBILEAP_PRIORITIZE_TRAFFIC; then
             "smali/com/samsung/android/server/wifi/ap/SemSoftApConfiguration.smali" "replaceall" \
             "SPF_Prio_Traffic=true" \
             "SPF_Prio_Traffic=false"
-        APPLY_PATCH "system" "system/priv-app/SecSettings/SecSettings.apk" \
-            "$MODPATH/wifi/prioritize_traffic/SecSettings.apk/0001-Disable-MOBILEAP_PRIORITIZE_TRAFFIC-support.patch"
+        if [[ "${TARGET_PLATFORM:-}" == "exynos9820" && "${SOURCE_PLATFORM_SDK_VERSION:-}" == "36" ]]; then
+            # Guard the actual Android 16 donor classes, not stale dex paths.
+            DECODE_APK "system" "system/priv-app/SecSettings/SecSettings.apk" ||
+                ABORT "Cannot decode Android 16 SecSettings for S10 priority guard"
+            if ! python3 "$SRC_DIR/scripts/disable_s10_settings_mobileap_priority.py" \
+                    "$APKTOOL_DIR/system/priv-app/SecSettings/SecSettings.apk"; then
+                ABORT "S10 Android 16 SecSettings priority adaptation rejected donor"
+            fi
+        else
+            APPLY_PATCH "system" "system/priv-app/SecSettings/SecSettings.apk" \
+                "$MODPATH/wifi/prioritize_traffic/SecSettings.apk/0001-Disable-MOBILEAP_PRIORITIZE_TRAFFIC-support.patch"
+        fi
     fi
 else
     if $TARGET_WLAN_SUPPORT_MOBILEAP_PRIORITIZE_TRAFFIC; then
