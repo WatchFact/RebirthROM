@@ -35,6 +35,32 @@ fi
 
 PRESERVE_NATIVE_FINGERPRINT_UI="${SOURCE_USE_NATIVE_FINGERPRINT_UI:-false}"
 USE_MODERN_MDNIE_SERVICE="${SOURCE_USE_MODERN_MDNIE_SERVICE:-false}"
+# Apply Android 16 APK patches only after locating the actual donor dex
+# directory for every class. Remapping changes patch headers, never hunks.
+# Missing, duplicate, or incompatible donor classes must fail closed.
+APPLY_S10_VIBRATION_APK_PATCH()
+{
+    local APK="$1"
+    local PATCH="$2"
+    local REMAPPED
+
+    DECODE_APK "system" "$APK" || return 1
+    REMAPPED="$(mktemp "${TMPDIR:-/tmp}/rebirthrom-s10-vib-XXXXXXXX.patch")" || return 1
+    if ! python3 "$SRC_DIR/scripts/remap_smali_patch.py" \
+            "$APKTOOL_DIR/system/${APK#system/}" "$PATCH" "$REMAPPED"; then
+        rm -f "$REMAPPED"
+        ABORT "S10 virtual-vibration APK patch cannot locate unique donor classes: $APK"
+        return 1
+    fi
+    if APPLY_PATCH "system" "$APK" "$REMAPPED"; then
+        rm -f "$REMAPPED"
+        return 0
+    fi
+    rm -f "$REMAPPED"
+    ABORT "S10 virtual-vibration APK patch has incompatible donor hunks: $APK"
+    return 1
+}
+
 # ]
 
 # SEC_PRODUCT_FEATURE_BUILD_MAINLINE_API_LEVEL
@@ -165,10 +191,19 @@ if $SOURCE_AUDIO_SUPPORT_VIRTUAL_VIBRATION_SOUND; then
             SMALI_PATCH "system" "system/framework/services.jar" \
                 "smali_classes2/com/android/server/vibrator/VirtualVibSoundHelper.smali" "remove"
         fi
-        APPLY_PATCH "system" "system/priv-app/SecSettings/SecSettings.apk" \
-            "$MODPATH/audio/virtual_vib/SecSettings.apk/0001-Disable-virtual-vibration-support.patch"
-        APPLY_PATCH "system" "system/priv-app/SettingsProvider/SettingsProvider.apk" \
-            "$MODPATH/audio/virtual_vib/SettingsProvider.apk/0001-Disable-virtual-vibration-support.patch"
+        if [[ "$TARGET_PLATFORM" == "exynos9820" && "$SOURCE_PLATFORM_SDK_VERSION" -ge 36 ]]; then
+            APPLY_S10_VIBRATION_APK_PATCH \
+                "system/priv-app/SecSettings/SecSettings.apk" \
+                "$MODPATH/audio/virtual_vib/SecSettings.apk/0001-Disable-virtual-vibration-support.patch" || return 1
+            APPLY_S10_VIBRATION_APK_PATCH \
+                "system/priv-app/SettingsProvider/SettingsProvider.apk" \
+                "$MODPATH/audio/virtual_vib/SettingsProvider.apk/0001-Disable-virtual-vibration-support.patch" || return 1
+        else
+            APPLY_PATCH "system" "system/priv-app/SecSettings/SecSettings.apk" \
+                "$MODPATH/audio/virtual_vib/SecSettings.apk/0001-Disable-virtual-vibration-support.patch"
+            APPLY_PATCH "system" "system/priv-app/SettingsProvider/SettingsProvider.apk" \
+                "$MODPATH/audio/virtual_vib/SettingsProvider.apk/0001-Disable-virtual-vibration-support.patch"
+        fi
     fi
 else
     if $TARGET_AUDIO_SUPPORT_VIRTUAL_VIBRATION_SOUND; then

@@ -39,6 +39,37 @@ class SmaliRemappingTests(unittest.TestCase):
         subprocess.run(["git", "-C", str(self.root), "apply", str(patch_path)], check=True)
         self.assertEqual(self.class_file.read_text(encoding="utf-8"), "new\n")
 
+    def test_multiple_classes_relocate_independently(self):
+        second = self.root / "smali_classes6/com/samsung/Other.smali"
+        second.parent.mkdir(parents=True)
+        second.write_text("alpha\n", encoding="utf-8")
+        extra = """diff --git a/smali_classes4/com/samsung/Other.smali b/smali_classes4/com/samsung/Other.smali
+--- a/smali_classes4/com/samsung/Other.smali
++++ b/smali_classes4/com/samsung/Other.smali
+@@ -1 +1 @@
+-alpha
++beta
+"""
+        adjusted = MODULE.remap(self.root, PATCH + extra)
+        self.assertIn("smali_classes4/com/samsung/Test.smali", adjusted)
+        self.assertIn("smali_classes6/com/samsung/Other.smali", adjusted)
+        patch_path = self.root / "two.patch"
+        patch_path.write_text(adjusted, encoding="utf-8")
+        subprocess.run(["git", "-C", str(self.root), "apply", "--check", str(patch_path)], check=True)
+        subprocess.run(["git", "-C", str(self.root), "apply", str(patch_path)], check=True)
+        self.assertEqual(self.class_file.read_text(), "new\n")
+        self.assertEqual(second.read_text(), "beta\n")
+
+    def test_relocation_does_not_hide_incompatible_hunks(self):
+        adjusted = MODULE.remap(self.root, PATCH.replace("-old", "-not-the-donor"))
+        patch_path = self.root / "incompatible.patch"
+        patch_path.write_text(adjusted, encoding="utf-8")
+        result = subprocess.run(
+            ["git", "-C", str(self.root), "apply", "--check", str(patch_path)],
+            capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.class_file.read_text(), "old\n")
+
     def test_missing_class_fails_closed(self):
         self.class_file.unlink()
         with self.assertRaisesRegex(ValueError, "found 0"):

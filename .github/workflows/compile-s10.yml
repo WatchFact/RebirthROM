@@ -162,6 +162,25 @@ jobs:
           if [[ ! -s out/target/beyond2lte/work_dir/.completed && -d "$FACE_JAR" ]]; then
             python3 scripts/collect_s10_face_evidence.py "$FACE_JAR" "$FACE_PATCH" compile-report/face/donor-smali-excerpts.txt --full-classes
           fi
+          # If the Android 16 Settings APK patch cannot be applied, preserve
+          # the real dex-directory locations and feature references, not
+          # proprietary donor bytecode or speculative class names.
+          if [[ ! -s out/target/beyond2lte/work_dir/.completed ]]; then
+            mkdir -p compile-report/vibration-settings
+            for APK_NAME in SecSettings SettingsProvider; do
+              APK_DIR="out/target/beyond2lte/apktool/system/priv-app/$APK_NAME/$APK_NAME.apk"
+              if [[ -d "$APK_DIR" ]]; then
+                {
+                  echo "Decoded APK: $APK_NAME"
+                  echo "Classes matching legacy virtual-vibration patch:"
+                  find "$APK_DIR" -type f \( -name '*VirtualVibration*.smali' -o -name 'SoundSettings$3.smali' -o -name 'ResetSoundSystemFeedbackSettings$1.smali' -o -name 'SoundItem.smali' -o -name 'DatabaseHelper$1.smali' \) -printf '%P\\n' | sort
+                  echo "Files referencing virtual-vibration feature:"
+                  grep -RIl --include='*.smali' -E 'vibration_sound_enabled|VirtualVibrationSound|VibrationSoundEnabled' "$APK_DIR" | sed "s#^$APK_DIR/##" | sort || true
+                } > "compile-report/vibration-settings/$APK_NAME-inventory.txt"
+              fi
+            done
+          fi
+
           # Virtual-vibration disablement currently fails on donor-specific
           # audio/vibrator smali. Capture complete donor classes for a safe
           # behavior-preserving rebase; never apply partial patch hunks.
