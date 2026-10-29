@@ -177,6 +177,17 @@ jobs:
                   echo "Files referencing virtual-vibration feature:"
                   grep -RIl --include='*.smali' -E 'vibration_sound_enabled|VirtualVibrationSound|VibrationSoundEnabled' "$APK_DIR" | sed "s#^$APK_DIR/##" | sort || true
                 } > "compile-report/vibration-settings/$APK_NAME-inventory.txt"
+                # Capture full donor classes only in the private CI diagnostic
+                # artifact. This is evidence for a guarded Android 16 rebase,
+                # not a partial patch or a change to the device image.
+                SETTINGS_VIB_PATCH="unica/patches/product_feature/audio/virtual_vib/$APK_NAME.apk/0001-Disable-virtual-vibration-support.patch"
+                if [[ -f "$SETTINGS_VIB_PATCH" ]]; then
+                  if ! python3 scripts/collect_s10_settings_vib_evidence.py \
+                      "$APK_DIR" "$SETTINGS_VIB_PATCH" \
+                      "compile-report/vibration-settings/$APK_NAME-donor-smali.txt"; then
+                    echo "::warning::Complete $APK_NAME virtual-vibration donor evidence unavailable"
+                  fi
+                fi
               fi
             done
           fi
