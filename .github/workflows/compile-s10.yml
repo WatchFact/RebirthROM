@@ -207,6 +207,20 @@ jobs:
             fi
           fi
 
+          # Android 16's legacy MOBILEAP_PRIORITIZE_TRAFFIC patch rejected
+          # SemSettingsSoftResetHandler and SemWifiApBroadcastReceiver in #83.
+          # Preserve the exact donor methods (and SemWifiManagerProxy) for a
+          # fail-closed, behavior-preserving rebase; never guess branch labels
+          # or disable the feature with an incomplete smali patch.
+          WIFI_PRIORITY_PATCH=unica/patches/product_feature/wifi/prioritize_traffic/semwifi-service.jar/0001-Disable-MOBILEAP_PRIORITIZE_TRAFFIC-support.patch
+          if [[ ! -s out/target/beyond2lte/work_dir/.completed && -d "$WIFI_JAR" ]]; then
+            if ! python3 scripts/collect_s10_settings_vib_evidence.py \
+                "$WIFI_JAR" "$WIFI_PRIORITY_PATCH" \
+                compile-report/wifi/semwifi-prioritize-traffic-donor-smali.txt; then
+              echo "::warning::Complete Android 16 MobileAP traffic-priority donor evidence unavailable"
+            fi
+          fi
+
           # Virtual-vibration disablement currently fails on donor-specific
           # audio/vibrator smali. Capture complete donor classes for a safe
           # behavior-preserving rebase; never apply partial patch hunks.
