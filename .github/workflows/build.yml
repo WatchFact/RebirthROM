@@ -98,6 +98,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_s10_refresh_rate_dump.py' -v
           python3 -m unittest discover -s tests -p 'test_s10_game_hfr_mode.py' -v
           python3 -m unittest discover -s tests -p 'test_disable_s10_mobileap_11ax.py' -v
+          python3 -m unittest discover -s tests -p 'test_disable_s10_mobileap_priority.py' -v
           python3 -m unittest discover -s tests -p 'test_s10_work_dir_cache.py' -v
           python3 -m unittest discover -s tests -p 'test_s10_vendor_permissions.py' -v
           python3 -m unittest discover -s tests -p 'test_s10_jsqz_ueventd.py' -v

@@ -221,6 +221,18 @@ jobs:
             fi
           fi
 
+          # The legacy Android 16 SecSettings priority patch may reject donor
+          # bytecode. Preserve its five exact classes for a safe follow-up.
+          PRIORITY_SETTINGS_APK=out/target/beyond2lte/apktool/system/priv-app/SecSettings/SecSettings.apk
+          PRIORITY_SETTINGS_PATCH=unica/patches/product_feature/wifi/prioritize_traffic/SecSettings.apk/0001-Disable-MOBILEAP_PRIORITIZE_TRAFFIC-support.patch
+          if [[ ! -s out/target/beyond2lte/work_dir/.completed && -d "$PRIORITY_SETTINGS_APK" ]]; then
+            if ! python3 scripts/collect_s10_settings_vib_evidence.py \
+                "$PRIORITY_SETTINGS_APK" "$PRIORITY_SETTINGS_PATCH" \
+                compile-report/wifi/SecSettings-prioritize-traffic-donor-smali.txt; then
+              echo "::warning::Complete Android 16 SecSettings priority donor evidence unavailable"
+            fi
+          fi
+
           # Virtual-vibration disablement currently fails on donor-specific
           # audio/vibrator smali. Capture complete donor classes for a safe
           # behavior-preserving rebase; never apply partial patch hunks.

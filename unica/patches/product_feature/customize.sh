@@ -1312,8 +1312,19 @@ if $SOURCE_WLAN_SUPPORT_MOBILEAP_PRIORITIZE_TRAFFIC; then
         DELETE_FROM_WORK_DIR "system" "system/app/MhsAiService"
         DELETE_FROM_WORK_DIR "system" "system/etc/xgb_mhs_l1.model"
 
-        APPLY_PATCH "system" "system/framework/semwifi-service.jar" \
-            "$MODPATH/wifi/prioritize_traffic/semwifi-service.jar/0001-Disable-MOBILEAP_PRIORITIZE_TRAFFIC-support.patch"
+        if [[ "${TARGET_PLATFORM:-}" == "exynos9820" && "${SOURCE_PLATFORM_SDK_VERSION:-}" == "36" ]]; then
+            # Android 16 moved the priority telemetry into a dedicated method.
+            # Preserve unrelated SoftAP reset and hotspot state handling.
+            DECODE_APK "system" "system/framework/semwifi-service.jar" ||
+                ABORT "Cannot decode Android 16 semwifi-service.jar for S10 priority guard"
+            if ! python3 "$SRC_DIR/scripts/disable_s10_mobileap_priority.py" \
+                    "$APKTOOL_DIR/system/framework/semwifi-service.jar"; then
+                ABORT "S10 Android 16 MobileAP traffic-priority adaptation failed"
+            fi
+        else
+            APPLY_PATCH "system" "system/framework/semwifi-service.jar" \
+                "$MODPATH/wifi/prioritize_traffic/semwifi-service.jar/0001-Disable-MOBILEAP_PRIORITIZE_TRAFFIC-support.patch"
+        fi
         SMALI_PATCH "system" "system/framework/semwifi-service.jar" \
             "smali/com/samsung/android/server/wifi/ap/SemSoftApConfiguration.smali" "replaceall" \
             "SPF_Prio_Traffic=true" \
