@@ -173,7 +173,7 @@ jobs:
                 {
                   echo "Decoded APK: $APK_NAME"
                   echo "Classes matching legacy virtual-vibration patch:"
-                  find "$APK_DIR" -type f \( -name '*VirtualVibration*.smali' -o -name 'SoundSettings$3.smali' -o -name 'ResetSoundSystemFeedbackSettings$1.smali' -o -name 'SoundItem.smali' -o -name 'DatabaseHelper$1.smali' \) -printf '%P\\n' | sort
+                  find "$APK_DIR" -type f \( -name '*VirtualVibration*.smali' -o -name 'SoundSettings$3.smali' -o -name 'ResetSoundSystemFeedbackSettings$1.smali' -o -name 'SoundItem.smali' -o -name 'DatabaseHelper$1.smali' \) -printf '%P\n' | sort
                   echo "Files referencing virtual-vibration feature:"
                   grep -RIl --include='*.smali' -E 'vibration_sound_enabled|VirtualVibrationSound|VibrationSoundEnabled' "$APK_DIR" | sed "s#^$APK_DIR/##" | sort || true
                 } > "compile-report/vibration-settings/$APK_NAME-inventory.txt"
