@@ -1158,7 +1158,7 @@ fi
 # SEC_PRODUCT_FEATURE_WLAN_SUPPORT_MOBILEAP_11AX
 if $SOURCE_WLAN_SUPPORT_MOBILEAP_11AX; then
     if ! $TARGET_WLAN_SUPPORT_MOBILEAP_11AX; then
-        if [[ "\${TARGET_PLATFORM:-}" == "exynos9820" && "\${SOURCE_PLATFORM_SDK_VERSION:-}" == "36" ]]; then
+        if [[ "${TARGET_PLATFORM:-}" == "exynos9820" && "${SOURCE_PLATFORM_SDK_VERSION:-}" == "36" ]]; then
             # Android 16 moved the MobileAP capability logic. Reject unknown
             # donor layouts instead of applying incompatible legacy hunks.
             DECODE_APK "system" "system/framework/semwifi-service.jar" ||
