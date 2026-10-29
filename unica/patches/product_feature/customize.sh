@@ -1158,8 +1158,19 @@ fi
 # SEC_PRODUCT_FEATURE_WLAN_SUPPORT_MOBILEAP_11AX
 if $SOURCE_WLAN_SUPPORT_MOBILEAP_11AX; then
     if ! $TARGET_WLAN_SUPPORT_MOBILEAP_11AX; then
-        APPLY_PATCH "system" "system/framework/semwifi-service.jar" \
-            "$MODPATH/wifi/80211ax/semwifi-service.jar/0001-Disable-MOBILEAP_11AX-support.patch"
+        if [[ "\${TARGET_PLATFORM:-}" == "exynos9820" && "\${SOURCE_PLATFORM_SDK_VERSION:-}" == "36" ]]; then
+            # Android 16 moved the MobileAP capability logic. Reject unknown
+            # donor layouts instead of applying incompatible legacy hunks.
+            DECODE_APK "system" "system/framework/semwifi-service.jar" ||
+                ABORT "Cannot decode Android 16 semwifi-service.jar for S10"
+            if ! python3 "$SRC_DIR/scripts/disable_s10_mobileap_11ax.py" \
+                    "$APKTOOL_DIR/system/framework/semwifi-service.jar"; then
+                ABORT "S10 Android 16 MobileAP 11ax compatibility adaptation failed"
+            fi
+        else
+            APPLY_PATCH "system" "system/framework/semwifi-service.jar" \
+                "$MODPATH/wifi/80211ax/semwifi-service.jar/0001-Disable-MOBILEAP_11AX-support.patch"
+        fi
     fi
 else
     if $TARGET_WLAN_SUPPORT_MOBILEAP_11AX; then
